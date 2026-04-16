@@ -54,7 +54,9 @@ export function useContainerLogs(
     })
       .then((stop) => {
         if (cancelled) {
-          stop().catch(() => {});
+          // Do NOT call stop() here. In React StrictMode, the second
+          // effect has already replaced this stream under the same key.
+          // Calling stop would kill the new, active stream.
         } else {
           teardown = stop;
         }

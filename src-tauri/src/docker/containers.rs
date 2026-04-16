@@ -1,7 +1,10 @@
 use bollard::Docker;
+use bollard::container::LogOutput;
 use bollard::query_parameters::{
-    ListContainersOptionsBuilder, RemoveContainerOptionsBuilder, StopContainerOptions,
+    ListContainersOptionsBuilder, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
+    StopContainerOptions,
 };
+use futures_util::Stream;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -131,4 +134,66 @@ pub async fn remove(client: &Docker, id: &str, force: bool) -> Result<()> {
         .build();
     client.remove_container(id, Some(options)).await?;
     Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogLine {
+    pub stream: String,
+    pub timestamp: Option<String>,
+    pub text: String,
+}
+
+/// Parse the leading Docker timestamp prefix that appears when timestamps:true.
+/// Format: "2024-01-15T14:32:01.123456789Z actual log text"
+fn parse_log_line(raw: &str) -> (Option<String>, String) {
+    if let Some((maybe_ts, rest)) = raw.split_once(' ') {
+        if maybe_ts.len() >= 20
+            && maybe_ts.contains('T')
+            && (maybe_ts.ends_with('Z') || maybe_ts.contains('.'))
+        {
+            return (Some(maybe_ts.to_string()), rest.to_string());
+        }
+    }
+    (None, raw.to_string())
+}
+
+/// Build a stream of follow-mode container logs with timestamps enabled.
+/// Each chunk is split on newlines and emitted as a LogLine.
+pub fn logs_stream(
+    client: &Docker,
+    id: &str,
+    tail: u32,
+) -> impl Stream<Item = Result<Vec<LogLine>>> {
+    let options = LogsOptionsBuilder::new()
+        .follow(true)
+        .stdout(true)
+        .stderr(true)
+        .timestamps(true)
+        .tail(&tail.to_string())
+        .build();
+
+    let inner = client.logs(id, Some(options));
+    futures_util::StreamExt::map(inner, |item| {
+        item.map(|out| {
+            let stream_name = match &out {
+                LogOutput::StdErr { .. } => "stderr",
+                _ => "stdout",
+            };
+            let text = String::from_utf8_lossy(out.as_ref()).to_string();
+            text.split_inclusive('\n')
+                .map(|line| {
+                    let trimmed = line.trim_end_matches('\n').trim_end_matches('\r');
+                    let (ts, body) = parse_log_line(trimmed);
+                    LogLine {
+                        stream: stream_name.to_string(),
+                        timestamp: ts,
+                        text: body,
+                    }
+                })
+                .filter(|l| !l.text.is_empty() || l.timestamp.is_some())
+                .collect()
+        })
+        .map_err(crate::error::DockerLiteError::from)
+    })
 }

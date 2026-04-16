@@ -16,6 +16,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::system::get_system_info,
             commands::system::get_disk_usage,
+            commands::containers::list_containers,
+            commands::containers::inspect_container,
+            commands::containers::start_container,
+            commands::containers::stop_container,
+            commands::containers::restart_container,
+            commands::containers::pause_container,
+            commands::containers::unpause_container,
+            commands::containers::remove_container,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,5 +1,7 @@
 use bollard::Docker;
-use std::sync::RwLock;
+use std::collections::HashMap;
+use std::sync::{Mutex, RwLock};
+use tokio::task::JoinHandle;
 
 use crate::error::{DockerLiteError, validate_socket};
 
@@ -47,5 +49,46 @@ impl DockerState {
         *self.client.write().expect("DockerState lock poisoned") = Some(new_client);
         *self.socket_path.write().expect("socket_path lock poisoned") = new_path.to_string();
         Ok(())
+    }
+}
+
+/// Tracks active streaming tasks so they can be cancelled when the user
+/// navigates away or starts a new stream for the same resource.
+pub struct StreamRegistry {
+    tasks: Mutex<HashMap<String, JoinHandle<()>>>,
+}
+
+impl StreamRegistry {
+    pub fn new() -> Self {
+        Self {
+            tasks: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Register a task under the given key, cancelling any prior task with
+    /// the same key.
+    pub fn register(&self, key: String, handle: JoinHandle<()>) {
+        let mut tasks = self.tasks.lock().expect("StreamRegistry poisoned");
+        if let Some(old) = tasks.insert(key, handle) {
+            old.abort();
+        }
+    }
+
+    /// Cancel and remove the task with the given key, if any.
+    pub fn cancel(&self, key: &str) {
+        if let Some(handle) = self
+            .tasks
+            .lock()
+            .expect("StreamRegistry poisoned")
+            .remove(key)
+        {
+            handle.abort();
+        }
+    }
+}
+
+impl Default for StreamRegistry {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -54,3 +54,9 @@ export interface ContainerInfo {
   composeProject: string | null;
   composeService: string | null;
 }
+
+export interface LogLine {
+  stream: "stdout" | "stderr" | string;
+  timestamp: string | null;
+  text: string;
+}

@@ -22,3 +22,35 @@ export interface DiskUsage {
   buildCacheSize: number;
   totalSize: number;
 }
+
+export interface PortMapping {
+  ip: string | null;
+  privatePort: number;
+  publicPort: number | null;
+  protocol: string;
+}
+
+export type ContainerState =
+  | "running"
+  | "paused"
+  | "restarting"
+  | "exited"
+  | "created"
+  | "removing"
+  | "dead"
+  | "";
+
+export interface ContainerInfo {
+  id: string;
+  name: string;
+  image: string;
+  imageId: string;
+  command: string;
+  created: number;
+  state: ContainerState;
+  status: string;
+  ports: PortMapping[];
+  labels: Record<string, string>;
+  composeProject: string | null;
+  composeService: string | null;
+}

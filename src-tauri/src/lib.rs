@@ -3,7 +3,7 @@ mod docker;
 mod error;
 mod state;
 
-use state::DockerState;
+use state::{DockerState, StreamRegistry};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -13,6 +13,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(docker_state)
+        .manage(StreamRegistry::new())
         .invoke_handler(tauri::generate_handler![
             commands::system::get_system_info,
             commands::system::get_disk_usage,
@@ -24,6 +25,8 @@ pub fn run() {
             commands::containers::pause_container,
             commands::containers::unpause_container,
             commands::containers::remove_container,
+            commands::containers::stream_container_logs,
+            commands::containers::stop_log_stream,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

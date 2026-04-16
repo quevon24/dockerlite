@@ -20,9 +20,17 @@ import {
 } from "../../lib/tauri";
 import ConfirmDialog from "../ui/ConfirmDialog";
 
+export type ContainerActionKind =
+  | "start"
+  | "stop"
+  | "restart"
+  | "pause"
+  | "unpause"
+  | "remove";
+
 interface ContainerActionsProps {
   container: ContainerInfo;
-  onAction: () => void;
+  onAction: (kind: ContainerActionKind) => void;
 }
 
 const ITEM_CLASS =
@@ -41,18 +49,18 @@ export default function ContainerActions({
     container.state === "created" ||
     container.state === "dead";
 
-  const run = async (fn: () => Promise<void>) => {
+  const run = async (fn: () => Promise<void>, kind: ContainerActionKind) => {
     try {
       await fn();
     } catch (e) {
       console.error("Container action failed:", e);
     } finally {
-      onAction();
+      onAction(kind);
     }
   };
 
   const confirmDelete = async () => {
-    await run(() => removeContainer(container.id, !isStopped));
+    await run(() => removeContainer(container.id, !isStopped), "remove");
   };
 
   return (
@@ -75,7 +83,7 @@ export default function ContainerActions({
             {isStopped && (
               <DropdownMenu.Item
                 className={ITEM_CLASS}
-                onSelect={() => run(() => startContainer(container.id))}
+                onSelect={() => run(() => startContainer(container.id), "start")}
               >
                 <Play className="w-4 h-4 text-success" /> Start
               </DropdownMenu.Item>
@@ -84,19 +92,19 @@ export default function ContainerActions({
               <>
                 <DropdownMenu.Item
                   className={ITEM_CLASS}
-                  onSelect={() => run(() => stopContainer(container.id))}
+                  onSelect={() => run(() => stopContainer(container.id), "stop")}
                 >
                   <Square className="w-4 h-4 text-warning" /> Stop
                 </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className={ITEM_CLASS}
-                  onSelect={() => run(() => restartContainer(container.id))}
+                  onSelect={() => run(() => restartContainer(container.id), "restart")}
                 >
                   <RotateCw className="w-4 h-4 text-accent" /> Restart
                 </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className={ITEM_CLASS}
-                  onSelect={() => run(() => pauseContainer(container.id))}
+                  onSelect={() => run(() => pauseContainer(container.id), "pause")}
                 >
                   <Pause className="w-4 h-4 text-warning" /> Pause
                 </DropdownMenu.Item>
@@ -105,7 +113,7 @@ export default function ContainerActions({
             {isPaused && (
               <DropdownMenu.Item
                 className={ITEM_CLASS}
-                onSelect={() => run(() => unpauseContainer(container.id))}
+                onSelect={() => run(() => unpauseContainer(container.id), "unpause")}
               >
                 <PlayCircle className="w-4 h-4 text-success" /> Unpause
               </DropdownMenu.Item>

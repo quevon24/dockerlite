@@ -9,7 +9,7 @@ interface ContainerRowProps {
   container: ContainerInfo;
   selected: boolean;
   onToggleSelect: (id: string) => void;
-  onAction: () => void;
+  onAction: () => void; // table-level refresh; action kind isn't needed here
 }
 
 function formatPorts(ports: PortMapping[]): string {
@@ -72,7 +72,7 @@ export default function ContainerRow({
         {shortId(container.id)}
       </td>
       <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
-        <ContainerActions container={container} onAction={onAction} />
+        <ContainerActions container={container} onAction={() => onAction()} />
       </td>
     </tr>
   );

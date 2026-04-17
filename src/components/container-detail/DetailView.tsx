@@ -7,6 +7,7 @@ import StatusBadge from "../ui/StatusBadge";
 import ContainerActions from "../containers/ContainerActions";
 import type { ContainerActionKind } from "../containers/ContainerActions";
 import LogsTab from "./LogsTab";
+import StatsTab from "./StatsTab";
 
 interface DetailViewProps {
   containerId: string;
@@ -101,8 +102,12 @@ export default function DetailView({ containerId }: DetailViewProps) {
         <Tabs.Content value="terminal" className="text-text-secondary">
           Terminal coming in Phase 4.
         </Tabs.Content>
-        <Tabs.Content value="stats" className="text-text-secondary">
-          Stats coming in Phase 3.
+        <Tabs.Content
+          value="stats"
+          forceMount
+          className="flex-1 min-h-0 outline-none data-[state=inactive]:hidden overflow-auto"
+        >
+          <StatsTab containerId={containerId} />
         </Tabs.Content>
         <Tabs.Content value="inspect" className="text-text-secondary">
           Inspect coming in Phase 5.

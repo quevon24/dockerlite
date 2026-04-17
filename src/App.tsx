@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ToastProvider } from "./components/ui/Toast";
 import AppLayout from "./components/layout/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
 import ContainerDetailPage from "./pages/ContainerDetailPage";
@@ -10,6 +11,7 @@ import SettingsPage from "./pages/SettingsPage";
 
 function App() {
   return (
+    <ToastProvider>
     <BrowserRouter>
       <Routes>
         <Route element={<AppLayout />}>
@@ -23,6 +25,7 @@ function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   );
 }
 

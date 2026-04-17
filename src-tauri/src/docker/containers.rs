@@ -158,6 +158,70 @@ fn parse_log_line(raw: &str) -> (Option<String>, String) {
     (None, raw.to_string())
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatsSnapshot {
+    pub cpu_percent: f64,
+    pub memory_used: u64,
+    pub memory_limit: u64,
+    pub memory_percent: f64,
+    pub network_rx: u64,
+    pub network_tx: u64,
+    pub timestamp: i64,
+}
+
+/// Compute a StatsSnapshot from a single Docker stats response.
+/// Returns None if the stats don't contain enough data for computation.
+pub fn compute_stats(
+    stats: &bollard::models::ContainerStatsResponse,
+) -> Option<StatsSnapshot> {
+    let cpu = stats.cpu_stats.as_ref()?;
+    let precpu = stats.precpu_stats.as_ref()?;
+    let cpu_usage = cpu.cpu_usage.as_ref()?;
+    let precpu_usage = precpu.cpu_usage.as_ref()?;
+
+    let cpu_delta = cpu_usage.total_usage?.saturating_sub(precpu_usage.total_usage?);
+    let system_delta = cpu.system_cpu_usage?.saturating_sub(precpu.system_cpu_usage?);
+    let num_cpus = cpu.online_cpus.unwrap_or(1) as f64;
+
+    let cpu_percent = if system_delta > 0 {
+        (cpu_delta as f64 / system_delta as f64) * num_cpus * 100.0
+    } else {
+        0.0
+    };
+
+    let mem = stats.memory_stats.as_ref()?;
+    let memory_used = mem.usage.unwrap_or(0);
+    let memory_limit = mem.limit.unwrap_or(0);
+    let memory_percent = if memory_limit > 0 {
+        (memory_used as f64 / memory_limit as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let (network_rx, network_tx) = stats
+        .networks
+        .as_ref()
+        .map(|nets| {
+            nets.values().fold((0u64, 0u64), |(rx, tx), n| {
+                (rx + n.rx_bytes.unwrap_or(0), tx + n.tx_bytes.unwrap_or(0))
+            })
+        })
+        .unwrap_or((0, 0));
+
+    let timestamp = chrono::Utc::now().timestamp();
+
+    Some(StatsSnapshot {
+        cpu_percent,
+        memory_used,
+        memory_limit,
+        memory_percent,
+        network_rx,
+        network_tx,
+        timestamp,
+    })
+}
+
 /// Build a stream of follow-mode container logs with timestamps enabled.
 /// Each chunk is split on newlines and emitted as a LogLine.
 pub fn logs_stream(

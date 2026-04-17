@@ -30,6 +30,8 @@ pub fn run() {
             commands::containers::stop_log_stream,
             commands::containers::stream_container_stats,
             commands::containers::stop_stats_stream,
+            commands::images::list_images,
+            commands::images::remove_image,
             commands::exec::start_exec,
             commands::exec::write_exec_input,
             commands::exec::resize_exec_terminal,

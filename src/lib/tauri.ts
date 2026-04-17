@@ -46,6 +46,34 @@ export async function removeContainer(id: string, force: boolean): Promise<void>
  * of log lines emitted by the backend. Returns a teardown promise that stops
  * the stream when called.
  */
+export async function startExec(
+  containerId: string,
+  onOutput: (data: number[]) => void,
+): Promise<{ execId: string; stop: () => Promise<void> }> {
+  const channel = new Channel<number[]>();
+  channel.onmessage = onOutput;
+  const execId = await invoke<string>("start_exec", {
+    containerId,
+    onOutput: channel,
+  });
+  return {
+    execId,
+    stop: () => invoke<void>("stop_exec", { execId }),
+  };
+}
+
+export async function writeExecInput(execId: string, data: Uint8Array): Promise<void> {
+  return invoke("write_exec_input", { execId, data: Array.from(data) });
+}
+
+export async function resizeExecTerminal(
+  execId: string,
+  cols: number,
+  rows: number,
+): Promise<void> {
+  return invoke("resize_exec_terminal", { execId, cols, rows });
+}
+
 export function streamContainerStats(
   id: string,
   onSnapshot: (snapshot: StatsSnapshot) => void,

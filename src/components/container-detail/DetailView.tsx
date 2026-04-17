@@ -8,6 +8,7 @@ import ContainerActions from "../containers/ContainerActions";
 import type { ContainerActionKind } from "../containers/ContainerActions";
 import LogsTab from "./LogsTab";
 import StatsTab from "./StatsTab";
+import TerminalTab from "./TerminalTab";
 
 interface DetailViewProps {
   containerId: string;
@@ -99,8 +100,8 @@ export default function DetailView({ containerId }: DetailViewProps) {
         >
           <LogsTab containerId={containerId} resetKey={logsResetKey} />
         </Tabs.Content>
-        <Tabs.Content value="terminal" className="text-text-secondary">
-          Terminal coming in Phase 4.
+        <Tabs.Content value="terminal" className="flex-1 min-h-0 outline-none">
+          <TerminalTab containerId={containerId} />
         </Tabs.Content>
         <Tabs.Content
           value="stats"

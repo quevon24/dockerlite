@@ -61,6 +61,17 @@ export interface LogLine {
   text: string;
 }
 
+export interface ImageInfo {
+  id: string;
+  shortId: string;
+  repoTags: string[];
+  repoDigests: string[];
+  created: number;
+  size: number;
+  sharedSize: number;
+  dangling: boolean;
+}
+
 export interface StatsSnapshot {
   cpuPercent: number;
   memoryUsed: number;

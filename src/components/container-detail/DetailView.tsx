@@ -9,6 +9,8 @@ import type { ContainerActionKind } from "../containers/ContainerActions";
 import LogsTab from "./LogsTab";
 import StatsTab from "./StatsTab";
 import TerminalTab from "./TerminalTab";
+import InspectTab from "./InspectTab";
+import EnvTab from "./EnvTab";
 
 interface DetailViewProps {
   containerId: string;
@@ -110,11 +112,11 @@ export default function DetailView({ containerId }: DetailViewProps) {
         >
           <StatsTab containerId={containerId} />
         </Tabs.Content>
-        <Tabs.Content value="inspect" className="text-text-secondary">
-          Inspect coming in Phase 5.
+        <Tabs.Content value="inspect" className="flex-1 min-h-0 outline-none overflow-auto">
+          <InspectTab containerId={containerId} />
         </Tabs.Content>
-        <Tabs.Content value="env" className="text-text-secondary">
-          Environment coming in Phase 5.
+        <Tabs.Content value="env" className="flex-1 min-h-0 outline-none overflow-auto">
+          <EnvTab containerId={containerId} />
         </Tabs.Content>
       </Tabs.Root>
     </div>

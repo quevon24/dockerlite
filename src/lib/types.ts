@@ -60,3 +60,13 @@ export interface LogLine {
   timestamp: string | null;
   text: string;
 }
+
+export interface StatsSnapshot {
+  cpuPercent: number;
+  memoryUsed: number;
+  memoryLimit: number;
+  memoryPercent: number;
+  networkRx: number;
+  networkTx: number;
+  timestamp: number;
+}

@@ -1,5 +1,5 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
-import type { SystemInfo, DiskUsage, ContainerInfo, LogLine } from "./types";
+import type { SystemInfo, DiskUsage, ContainerInfo, LogLine, StatsSnapshot } from "./types";
 
 export async function getSystemInfo(): Promise<SystemInfo> {
   return invoke("get_system_info");
@@ -46,6 +46,17 @@ export async function removeContainer(id: string, force: boolean): Promise<void>
  * of log lines emitted by the backend. Returns a teardown promise that stops
  * the stream when called.
  */
+export function streamContainerStats(
+  id: string,
+  onSnapshot: (snapshot: StatsSnapshot) => void,
+): Promise<() => Promise<void>> {
+  const channel = new Channel<StatsSnapshot>();
+  channel.onmessage = onSnapshot;
+  return invoke<void>("stream_container_stats", { id, onEvent: channel }).then(
+    () => () => invoke<void>("stop_stats_stream", { id }),
+  );
+}
+
 export function streamContainerLogs(
   id: string,
   tail: number,

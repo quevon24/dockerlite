@@ -1,10 +1,187 @@
+import { useState } from "react";
+import { Layers, Trash2, RefreshCw, Filter } from "lucide-react";
+import { useImages } from "../lib/hooks/useImages";
+import { removeImage } from "../lib/tauri";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(1024));
+  const value = bytes / Math.pow(1024, i);
+  return `${value.toFixed(1)} ${units[i]}`;
+}
+
+function formatDate(ts: number): string {
+  return new Date(ts * 1000).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatTag(tag: string): string {
+  if (tag === "<none>:<none>") return "<none>";
+  return tag;
+}
+
 export default function ImagesPage() {
+  const { data, error, loading, refresh } = useImages();
+  const [showDangling, setShowDangling] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  const filtered = showDangling ? data.filter((i) => i.dangling) : data;
+
+  const danglingCount = data.filter((i) => i.dangling).length;
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await removeImage(deleteTarget.id, false);
+    } catch (e) {
+      console.error("Failed to remove image:", e);
+    }
+    refresh();
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-6">Images</h1>
-      <div className="bg-surface-raised border border-border rounded-lg p-8 text-center text-text-secondary">
-        <p>Image management will be displayed here.</p>
+
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          onClick={() => setShowDangling((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+            showDangling
+              ? "bg-warning/20 text-warning"
+              : "bg-surface-raised text-text-secondary hover:text-text-primary border border-border"
+          }`}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Dangling ({danglingCount})
+        </button>
+        <button
+          onClick={refresh}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-surface-raised text-text-secondary hover:text-text-primary border border-border transition-colors"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </button>
+        <span className="ml-auto text-sm text-text-muted">
+          {data.length} image{data.length !== 1 ? "s" : ""} total
+        </span>
       </div>
+
+      {loading && data.length === 0 && (
+        <div className="bg-surface-raised border border-border rounded-lg p-8 text-center text-text-secondary">
+          Loading images...
+        </div>
+      )}
+
+      {error && data.length === 0 && (
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-6 text-center">
+          <p className="text-danger font-medium mb-2">Failed to load images</p>
+          <p className="text-text-secondary text-sm">{error}</p>
+        </div>
+      )}
+
+      {!loading && filtered.length === 0 && (
+        <div className="bg-surface-raised border border-border rounded-lg p-12 text-center">
+          <Layers className="w-10 h-10 text-text-muted mx-auto mb-3" />
+          <p className="text-text-primary font-medium">
+            {showDangling ? "No dangling images" : "No images found"}
+          </p>
+        </div>
+      )}
+
+      {filtered.length > 0 && (
+        <div className="bg-surface-raised border border-border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-surface-overlay text-text-secondary text-xs uppercase tracking-wide">
+                <th className="px-4 py-2 text-left font-medium">Repository:Tag</th>
+                <th className="px-4 py-2 text-left font-medium">ID</th>
+                <th className="px-4 py-2 text-left font-medium">Created</th>
+                <th className="px-4 py-2 text-left font-medium">Size</th>
+                <th className="px-4 py-2 w-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((img) => (
+                <tr
+                  key={img.id}
+                  className={`border-b border-border ${
+                    img.dangling ? "bg-warning/5" : ""
+                  }`}
+                >
+                  <td className="px-4 py-2">
+                    <div className="flex flex-col gap-0.5">
+                      {img.repoTags.length > 0
+                        ? img.repoTags.map((tag) => (
+                            <span
+                              key={tag}
+                              className={`font-mono text-xs ${
+                                tag === "<none>:<none>"
+                                  ? "text-text-muted italic"
+                                  : "text-text-primary"
+                              }`}
+                            >
+                              {formatTag(tag)}
+                            </span>
+                          ))
+                        : (
+                          <span className="text-text-muted italic text-xs">
+                            &lt;none&gt;
+                          </span>
+                        )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 font-mono text-xs text-text-muted">
+                    {img.shortId}
+                  </td>
+                  <td className="px-4 py-2 text-xs text-text-secondary">
+                    {formatDate(img.created)}
+                  </td>
+                  <td className="px-4 py-2 text-xs text-text-secondary">
+                    {formatBytes(img.size)}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <button
+                      onClick={() =>
+                        setDeleteTarget({
+                          id: img.id,
+                          name:
+                            img.repoTags[0] && img.repoTags[0] !== "<none>:<none>"
+                              ? img.repoTags[0]
+                              : img.shortId,
+                        })
+                      }
+                      className="p-1.5 rounded hover:bg-surface-overlay text-text-muted hover:text-danger transition-colors"
+                      aria-label="Delete image"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={`Remove image "${deleteTarget?.name}"?`}
+        description="This image will be removed from the local cache. Containers using it must be removed first."
+        confirmLabel="Remove"
+        destructive
+        onConfirm={handleDelete}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

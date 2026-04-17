@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Layers, Trash2, RefreshCw, Filter } from "lucide-react";
+import * as Checkbox from "@radix-ui/react-checkbox";
+import { Layers, Trash2, RefreshCw, Filter, Check, X } from "lucide-react";
 import { useImages } from "../lib/hooks/useImages";
 import { removeImage } from "../lib/tauri";
+import { useToast } from "../components/ui/Toast";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 
 function formatBytes(bytes: number): string {
@@ -25,27 +27,94 @@ function formatTag(tag: string): string {
   return tag;
 }
 
+function imageName(repoTags: string[], shortId: string): string {
+  const tag = repoTags.find((t) => t !== "<none>:<none>");
+  return tag ?? shortId;
+}
+
 export default function ImagesPage() {
   const { data, error, loading, refresh } = useImages();
+  const { toast } = useToast();
   const [showDangling, setShowDangling] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     name: string;
   } | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const filtered = showDangling ? data.filter((i) => i.dangling) : data;
-
   const danglingCount = data.filter((i) => i.dangling).length;
 
-  const handleDelete = async () => {
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    const ids = filtered.map((i) => i.id);
+    const allSelected = ids.every((id) => selected.has(id));
+    setSelected(allSelected ? new Set() : new Set(ids));
+  };
+
+  const clearSelection = () => setSelected(new Set());
+
+  const handleSingleDelete = async () => {
     if (!deleteTarget) return;
     try {
       await removeImage(deleteTarget.id, false);
+      toast("Image removed", deleteTarget.name, "success");
     } catch (e) {
-      console.error("Failed to remove image:", e);
+      toast("Failed to remove image", String(e), "error");
     }
     refresh();
   };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selected);
+    let successCount = 0;
+    let failCount = 0;
+
+    const results = await Promise.allSettled(
+      ids.map(async (id) => {
+        await removeImage(id, false);
+        return id;
+      }),
+    );
+
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        successCount++;
+      } else {
+        failCount++;
+        const img = data.find((i) => i.id === ids[results.indexOf(result)]);
+        toast(
+          "Failed to remove image",
+          `${img ? imageName(img.repoTags, img.shortId) : "unknown"}: ${result.reason}`,
+          "error",
+        );
+      }
+    }
+
+    if (successCount > 0) {
+      toast(
+        `${successCount} image${successCount > 1 ? "s" : ""} removed`,
+        undefined,
+        "success",
+      );
+    }
+
+    clearSelection();
+    refresh();
+  };
+
+  const selectedIds = Array.from(selected);
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((i) => selected.has(i.id));
 
   return (
     <div>
@@ -74,6 +143,27 @@ export default function ImagesPage() {
         </span>
       </div>
 
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-2 mb-3 bg-surface-overlay border border-border rounded-lg px-3 py-2">
+          <span className="text-sm text-text-primary font-medium">
+            {selectedIds.length} selected
+          </span>
+          <div className="h-4 w-px bg-border mx-1" />
+          <button
+            onClick={() => setBulkDeleteOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-sm text-text-secondary hover:text-danger hover:bg-surface-raised transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Remove
+          </button>
+          <button
+            onClick={clearSelection}
+            className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-sm text-text-muted hover:text-text-primary transition-colors"
+          >
+            <X className="w-3.5 h-3.5" /> Clear
+          </button>
+        </div>
+      )}
+
       {loading && data.length === 0 && (
         <div className="bg-surface-raised border border-border rounded-lg p-8 text-center text-text-secondary">
           Loading images...
@@ -101,6 +191,18 @@ export default function ImagesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-overlay text-text-secondary text-xs uppercase tracking-wide">
+                <th className="px-3 py-2 w-8 text-left">
+                  <Checkbox.Root
+                    checked={allFilteredSelected}
+                    onCheckedChange={selectAll}
+                    className="w-4 h-4 rounded border border-border bg-surface flex items-center justify-center data-[state=checked]:bg-docker-blue data-[state=checked]:border-docker-blue"
+                    aria-label="Select all"
+                  >
+                    <Checkbox.Indicator>
+                      <Check className="w-3 h-3 text-surface" strokeWidth={3} />
+                    </Checkbox.Indicator>
+                  </Checkbox.Root>
+                </th>
                 <th className="px-4 py-2 text-left font-medium">Repository:Tag</th>
                 <th className="px-4 py-2 text-left font-medium">ID</th>
                 <th className="px-4 py-2 text-left font-medium">Created</th>
@@ -112,10 +214,26 @@ export default function ImagesPage() {
               {filtered.map((img) => (
                 <tr
                   key={img.id}
-                  className={`border-b border-border ${
-                    img.dangling ? "bg-warning/5" : ""
+                  className={`border-b border-border transition-colors ${
+                    img.dangling
+                      ? "bg-warning/5"
+                      : selected.has(img.id)
+                        ? "bg-surface-overlay/40"
+                        : "hover:bg-surface-overlay/30"
                   }`}
                 >
+                  <td className="px-3 py-2">
+                    <Checkbox.Root
+                      checked={selected.has(img.id)}
+                      onCheckedChange={() => toggleSelect(img.id)}
+                      className="w-4 h-4 rounded border border-border bg-surface flex items-center justify-center data-[state=checked]:bg-docker-blue data-[state=checked]:border-docker-blue"
+                      aria-label={`Select ${imageName(img.repoTags, img.shortId)}`}
+                    >
+                      <Checkbox.Indicator>
+                        <Check className="w-3 h-3 text-surface" strokeWidth={3} />
+                      </Checkbox.Indicator>
+                    </Checkbox.Root>
+                  </td>
                   <td className="px-4 py-2">
                     <div className="flex flex-col gap-0.5">
                       {img.repoTags.length > 0
@@ -152,10 +270,7 @@ export default function ImagesPage() {
                       onClick={() =>
                         setDeleteTarget({
                           id: img.id,
-                          name:
-                            img.repoTags[0] && img.repoTags[0] !== "<none>:<none>"
-                              ? img.repoTags[0]
-                              : img.shortId,
+                          name: imageName(img.repoTags, img.shortId),
                         })
                       }
                       className="p-1.5 rounded hover:bg-surface-overlay text-text-muted hover:text-danger transition-colors"
@@ -177,10 +292,20 @@ export default function ImagesPage() {
         description="This image will be removed from the local cache. Containers using it must be removed first."
         confirmLabel="Remove"
         destructive
-        onConfirm={handleDelete}
+        onConfirm={handleSingleDelete}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        title={`Remove ${selectedIds.length} image${selectedIds.length === 1 ? "" : "s"}?`}
+        description="Selected images will be removed. Images in use by containers will fail and show an error."
+        confirmLabel="Remove all"
+        destructive
+        onConfirm={handleBulkDelete}
+        onOpenChange={setBulkDeleteOpen}
       />
     </div>
   );

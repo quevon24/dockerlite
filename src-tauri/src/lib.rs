@@ -27,6 +27,8 @@ pub fn run() {
             commands::containers::remove_container,
             commands::containers::stream_container_logs,
             commands::containers::stop_log_stream,
+            commands::containers::stream_container_stats,
+            commands::containers::stop_stats_stream,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

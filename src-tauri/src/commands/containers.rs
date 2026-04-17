@@ -4,7 +4,7 @@ use futures_util::StreamExt;
 use tauri::State;
 use tauri::ipc::Channel;
 
-use crate::docker::containers::{ContainerInfo, LogLine};
+use crate::docker::containers::{ContainerInfo, LogLine, StatsSnapshot};
 use crate::error::DockerLiteError;
 use crate::state::{DockerState, StreamRegistry};
 
@@ -130,6 +130,60 @@ pub async fn stream_container_logs(
     });
 
     streams.register(key, handle);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn stream_container_stats(
+    id: String,
+    docker: State<'_, DockerState>,
+    streams: State<'_, StreamRegistry>,
+    on_event: Channel<StatsSnapshot>,
+) -> Result<(), DockerLiteError> {
+    let key = format!("stats:{id}");
+    streams.cancel(&key);
+
+    let client = docker.client()?;
+    let container_id = id.clone();
+    let handle = tokio::spawn(async move {
+        use bollard::query_parameters::StatsOptionsBuilder;
+
+        loop {
+            let options = StatsOptionsBuilder::new().stream(true).build();
+            let mut stream = Box::pin(client.stats(&container_id, Some(options)));
+
+            while let Some(item) = stream.next().await {
+                match item {
+                    Ok(stats) => {
+                        if let Some(snapshot) =
+                            crate::docker::containers::compute_stats(&stats)
+                        {
+                            if on_event.send(snapshot).is_err() {
+                                return;
+                            }
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+
+            if client.inspect_container(&container_id, None).await.is_err() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    });
+
+    streams.register(key, handle);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn stop_stats_stream(
+    id: String,
+    streams: State<'_, StreamRegistry>,
+) -> Result<(), DockerLiteError> {
+    streams.cancel(&format!("stats:{id}"));
     Ok(())
 }
 

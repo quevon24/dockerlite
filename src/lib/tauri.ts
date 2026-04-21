@@ -1,5 +1,8 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
-import type { SystemInfo, DiskUsage, ContainerInfo, ImageInfo, LogLine, StatsSnapshot } from "./types";
+import type {
+  SystemInfo, DiskUsage, ContainerInfo, ImageInfo,
+  VolumeInfo, NetworkInfo, LogLine, StatsSnapshot,
+} from "./types";
 
 export async function getSystemInfo(): Promise<SystemInfo> {
   return invoke("get_system_info");
@@ -19,6 +22,22 @@ export async function listImages(): Promise<ImageInfo[]> {
 
 export async function removeImage(id: string, force: boolean): Promise<void> {
   return invoke("remove_image", { id, force });
+}
+
+export async function listVolumes(): Promise<VolumeInfo[]> {
+  return invoke("list_volumes");
+}
+
+export async function removeVolume(name: string): Promise<void> {
+  return invoke("remove_volume", { name });
+}
+
+export async function listNetworks(): Promise<NetworkInfo[]> {
+  return invoke("list_networks");
+}
+
+export async function removeNetwork(id: string): Promise<void> {
+  return invoke("remove_network", { id });
 }
 
 export async function inspectContainer(id: string): Promise<unknown> {

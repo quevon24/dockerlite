@@ -72,6 +72,33 @@ export interface ImageInfo {
   dangling: boolean;
 }
 
+export interface VolumeInfo {
+  name: string;
+  driver: string;
+  mountpoint: string;
+  createdAt: string | null;
+  size: number;
+  refCount: number;
+  labels: Record<string, string>;
+}
+
+export interface NetworkContainer {
+  containerId: string;
+  name: string;
+  ipv4Address: string;
+  ipv6Address: string;
+}
+
+export interface NetworkInfo {
+  id: string;
+  name: string;
+  driver: string;
+  scope: string;
+  internal: boolean;
+  containers: NetworkContainer[];
+  labels: Record<string, string>;
+}
+
 export interface StatsSnapshot {
   cpuPercent: number;
   memoryUsed: number;

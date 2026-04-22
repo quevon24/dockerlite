@@ -21,6 +21,14 @@ pub async fn get_disk_usage(
 }
 
 #[tauri::command]
+pub async fn reconnect_docker(
+    socket_path: String,
+    docker: State<'_, DockerState>,
+) -> Result<(), DockerLiteError> {
+    docker.reconnect(&socket_path)
+}
+
+#[tauri::command]
 pub async fn prune_containers(
     docker: State<'_, DockerState>,
 ) -> Result<PruneResult, DockerLiteError> {

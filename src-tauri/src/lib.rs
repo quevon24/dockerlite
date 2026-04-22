@@ -18,6 +18,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::system::get_system_info,
             commands::system::get_disk_usage,
+            commands::system::reconnect_docker,
             commands::system::prune_containers,
             commands::system::prune_images,
             commands::system::prune_volumes,

@@ -1,7 +1,7 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
 import type {
   SystemInfo, DiskUsage, ContainerInfo, ImageInfo,
-  VolumeInfo, NetworkInfo, LogLine, StatsSnapshot,
+  VolumeInfo, NetworkInfo, PruneResult, LogLine, StatsSnapshot,
 } from "./types";
 
 export async function getSystemInfo(): Promise<SystemInfo> {
@@ -38,6 +38,26 @@ export async function listNetworks(): Promise<NetworkInfo[]> {
 
 export async function removeNetwork(id: string): Promise<void> {
   return invoke("remove_network", { id });
+}
+
+export async function pruneContainers(): Promise<PruneResult> {
+  return invoke("prune_containers");
+}
+
+export async function pruneImages(all: boolean): Promise<PruneResult> {
+  return invoke("prune_images", { all });
+}
+
+export async function pruneVolumes(): Promise<PruneResult> {
+  return invoke("prune_volumes");
+}
+
+export async function pruneNetworks(): Promise<PruneResult> {
+  return invoke("prune_networks");
+}
+
+export async function pruneBuildCache(): Promise<PruneResult> {
+  return invoke("prune_build_cache");
 }
 
 export async function inspectContainer(id: string): Promise<unknown> {

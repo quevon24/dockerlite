@@ -99,6 +99,11 @@ export interface NetworkInfo {
   labels: Record<string, string>;
 }
 
+export interface PruneResult {
+  itemsDeleted: number;
+  spaceReclaimed: number;
+}
+
 export interface StatsSnapshot {
   cpuPercent: number;
   memoryUsed: number;

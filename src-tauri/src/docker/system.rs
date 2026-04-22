@@ -1,5 +1,8 @@
 use bollard::Docker;
-use bollard::query_parameters::{PruneImagesOptions, PruneVolumesOptions};
+use bollard::query_parameters::{
+    ListContainersOptionsBuilder, ListImagesOptionsBuilder, ListVolumesOptions,
+    PruneBuildOptions, PruneImagesOptions, PruneVolumesOptions,
+};
 use serde::Serialize;
 
 use crate::error::Result;
@@ -57,47 +60,39 @@ pub async fn get_info(client: &Docker) -> Result<SystemInfoResponse> {
     })
 }
 
-/// Fetch Docker disk usage (equivalent to `docker system df`).
+/// Fetch Docker disk usage by querying individual list endpoints.
+/// Bollard 0.20's df() aggregate fields don't match the Docker API field
+/// names, so we compute sizes from the list results instead.
 pub async fn get_disk_usage(client: &Docker) -> Result<DiskUsageResponse> {
-    let df = client.df(None).await?;
+    let images = client
+        .list_images(Some(ListImagesOptionsBuilder::new().all(true).build()))
+        .await?;
+    let images_count = images.len() as i64;
+    let images_size: i64 = images.iter().map(|i| i.size).sum();
 
-    let images_count = df
-        .images_disk_usage
-        .as_ref()
-        .and_then(|d| d.total_count)
-        .unwrap_or(0);
-    let images_size = df
-        .images_disk_usage
-        .as_ref()
-        .and_then(|d| d.total_size)
-        .unwrap_or(0);
+    let containers = client
+        .list_containers(Some(ListContainersOptionsBuilder::new().all(true).build()))
+        .await?;
+    let containers_count = containers.len() as i64;
+    let containers_size: i64 = containers.iter().filter_map(|c| c.size_rw).sum();
 
-    let containers_count = df
-        .containers_disk_usage
-        .as_ref()
-        .and_then(|d| d.total_count)
-        .unwrap_or(0);
-    let containers_size = df
-        .containers_disk_usage
-        .as_ref()
-        .and_then(|d| d.total_size)
-        .unwrap_or(0);
+    let volumes_resp = client.list_volumes(None::<ListVolumesOptions>).await?;
+    let volumes = volumes_resp.volumes.unwrap_or_default();
+    let volumes_count = volumes.len() as i64;
+    let volumes_size: i64 = volumes
+        .iter()
+        .filter_map(|v| v.usage_data.as_ref())
+        .map(|u| u.size.max(0))
+        .sum();
 
-    let volumes_count = df
-        .volumes_disk_usage
-        .as_ref()
-        .and_then(|d| d.total_count)
-        .unwrap_or(0);
-    let volumes_size = df
-        .volumes_disk_usage
-        .as_ref()
-        .and_then(|d| d.total_size)
-        .unwrap_or(0);
-
-    let build_cache_size = df
-        .build_cache_disk_usage
-        .as_ref()
-        .and_then(|d| d.total_size)
+    // Build cache size: try df endpoint, fall back to 0 if the aggregate
+    // fields aren't populated (Bollard/API version mismatch).
+    let build_cache_size: i64 = client
+        .df(None)
+        .await
+        .ok()
+        .and_then(|df| df.build_cache_disk_usage)
+        .and_then(|b| b.total_size)
         .unwrap_or(0);
 
     Ok(DiskUsageResponse {
@@ -164,7 +159,7 @@ pub async fn prune_networks(client: &Docker) -> Result<PruneResult> {
 /// Prune build cache.
 pub async fn prune_build_cache(client: &Docker) -> Result<PruneResult> {
     let resp = client
-        .prune_build(None::<bollard::query_parameters::PruneBuildOptions>)
+        .prune_build(None::<PruneBuildOptions>)
         .await?;
     Ok(PruneResult {
         items_deleted: resp.caches_deleted.map(|v| v.len() as u32).unwrap_or(0),

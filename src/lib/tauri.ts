@@ -4,6 +4,10 @@ import type {
   VolumeInfo, NetworkInfo, PruneResult, LogLine, StatsSnapshot,
 } from "./types";
 
+export async function reconnectDocker(socketPath: string): Promise<void> {
+  return invoke("reconnect_docker", { socketPath });
+}
+
 export async function getSystemInfo(): Promise<SystemInfo> {
   return invoke("get_system_info");
 }

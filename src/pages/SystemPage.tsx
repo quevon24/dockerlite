@@ -77,11 +77,16 @@ export default function SystemPage() {
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const fetchDiskUsage = () => {
+  const fetchDiskUsage = (showToast = false) => {
     setLoading(true);
     getDiskUsage()
-      .then(setDiskUsage)
-      .catch(() => {})
+      .then((data) => {
+        setDiskUsage(data);
+        if (showToast) toast("Disk usage refreshed", undefined, "info");
+      })
+      .catch((e) => {
+        if (showToast) toast("Failed to fetch disk usage", String(e), "error");
+      })
       .finally(() => setLoading(false));
   };
 
@@ -143,7 +148,7 @@ export default function SystemPage() {
     }
 
     setPruning(false);
-    fetchDiskUsage();
+    fetchDiskUsage(false);
   };
 
   return (
@@ -222,7 +227,7 @@ export default function SystemPage() {
           {pruning ? "Cleaning..." : "Clean up"}
         </button>
         <button
-          onClick={fetchDiskUsage}
+          onClick={() => fetchDiskUsage(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-surface-raised text-text-secondary hover:text-text-primary border border-border transition-colors"
         >
           <RefreshCw className="w-4 h-4" /> Refresh

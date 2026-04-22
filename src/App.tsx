@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ToastProvider } from "./components/ui/Toast";
+import { SettingsProvider } from "./lib/SettingsContext";
 import AppLayout from "./components/layout/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
 import ContainerDetailPage from "./pages/ContainerDetailPage";
@@ -11,6 +12,7 @@ import SettingsPage from "./pages/SettingsPage";
 
 function App() {
   return (
+    <SettingsProvider>
     <ToastProvider>
     <BrowserRouter>
       <Routes>
@@ -26,6 +28,7 @@ function App() {
       </Routes>
     </BrowserRouter>
     </ToastProvider>
+    </SettingsProvider>
   );
 }
 

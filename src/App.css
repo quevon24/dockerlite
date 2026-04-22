@@ -56,3 +56,18 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
+
+/* Light theme overrides */
+html.light {
+  --color-surface: #ffffff;
+  --color-surface-raised: #f6f8fa;
+  --color-surface-overlay: #eaeef2;
+  --color-border: #d0d7de;
+  --color-text-primary: #1f2328;
+  --color-text-secondary: #656d76;
+  --color-text-muted: #8c959f;
+  --color-accent: #0969da;
+  --color-success: #1a7f37;
+  --color-warning: #9a6700;
+  --color-danger: #cf222e;
+}

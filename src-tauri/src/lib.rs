@@ -18,6 +18,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::system::get_system_info,
             commands::system::get_disk_usage,
+            commands::system::prune_containers,
+            commands::system::prune_images,
+            commands::system::prune_volumes,
+            commands::system::prune_networks,
+            commands::system::prune_build_cache,
             commands::containers::list_containers,
             commands::containers::inspect_container,
             commands::containers::start_container,

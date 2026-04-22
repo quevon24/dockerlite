@@ -1,4 +1,5 @@
 use bollard::Docker;
+use bollard::query_parameters::{PruneImagesOptions, PruneVolumesOptions};
 use serde::Serialize;
 
 use crate::error::Result;
@@ -108,5 +109,65 @@ pub async fn get_disk_usage(client: &Docker) -> Result<DiskUsageResponse> {
         volumes_size,
         build_cache_size,
         total_size: images_size + containers_size + volumes_size + build_cache_size,
+    })
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PruneResult {
+    pub items_deleted: u32,
+    pub space_reclaimed: i64,
+}
+
+/// Prune stopped containers.
+pub async fn prune_containers(client: &Docker) -> Result<PruneResult> {
+    let resp = client.prune_containers(None).await?;
+    Ok(PruneResult {
+        items_deleted: resp.containers_deleted.map(|v| v.len() as u32).unwrap_or(0),
+        space_reclaimed: resp.space_reclaimed.unwrap_or(0),
+    })
+}
+
+/// Prune unused images. If `all` is true, removes all unused images (not just dangling).
+pub async fn prune_images(client: &Docker, all: bool) -> Result<PruneResult> {
+    let mut opts = PruneImagesOptions::default();
+    if all {
+        let mut filters = std::collections::HashMap::new();
+        filters.insert("dangling".to_string(), vec!["false".to_string()]);
+        opts.filters = Some(filters);
+    }
+    let resp = client.prune_images(Some(opts)).await?;
+    Ok(PruneResult {
+        items_deleted: resp.images_deleted.map(|v| v.len() as u32).unwrap_or(0),
+        space_reclaimed: resp.space_reclaimed.unwrap_or(0),
+    })
+}
+
+/// Prune unused volumes.
+pub async fn prune_volumes(client: &Docker) -> Result<PruneResult> {
+    let resp = client.prune_volumes(None::<PruneVolumesOptions>).await?;
+    Ok(PruneResult {
+        items_deleted: resp.volumes_deleted.map(|v| v.len() as u32).unwrap_or(0),
+        space_reclaimed: resp.space_reclaimed.unwrap_or(0),
+    })
+}
+
+/// Prune unused networks.
+pub async fn prune_networks(client: &Docker) -> Result<PruneResult> {
+    let resp = client.prune_networks(None).await?;
+    Ok(PruneResult {
+        items_deleted: resp.networks_deleted.map(|v| v.len() as u32).unwrap_or(0),
+        space_reclaimed: 0,
+    })
+}
+
+/// Prune build cache.
+pub async fn prune_build_cache(client: &Docker) -> Result<PruneResult> {
+    let resp = client
+        .prune_build(None::<bollard::query_parameters::PruneBuildOptions>)
+        .await?;
+    Ok(PruneResult {
+        items_deleted: resp.caches_deleted.map(|v| v.len() as u32).unwrap_or(0),
+        space_reclaimed: resp.space_reclaimed.unwrap_or(0),
     })
 }

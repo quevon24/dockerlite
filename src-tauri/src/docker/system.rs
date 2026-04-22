@@ -1,11 +1,10 @@
 use bollard::Docker;
-use bollard::query_parameters::{
-    ListContainersOptionsBuilder, ListImagesOptionsBuilder, ListVolumesOptions,
-    PruneBuildOptions, PruneImagesOptions, PruneVolumesOptions,
-};
+use bollard::query_parameters::{PruneBuildOptions, PruneImagesOptions, PruneVolumesOptions};
 use serde::Serialize;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::UnixStream;
 
-use crate::error::Result;
+use crate::error::{DockerLiteError, Result};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,40 +59,66 @@ pub async fn get_info(client: &Docker) -> Result<SystemInfoResponse> {
     })
 }
 
-/// Fetch Docker disk usage by querying individual list endpoints.
-/// Bollard 0.20's df() aggregate fields don't match the Docker API field
-/// names, so we compute sizes from the list results instead.
-pub async fn get_disk_usage(client: &Docker) -> Result<DiskUsageResponse> {
-    let images = client
-        .list_images(Some(ListImagesOptionsBuilder::new().all(true).build()))
-        .await?;
-    let images_count = images.len() as i64;
-    let images_size: i64 = images.iter().map(|i| i.size).sum();
-
-    let containers = client
-        .list_containers(Some(ListContainersOptionsBuilder::new().all(true).build()))
-        .await?;
-    let containers_count = containers.len() as i64;
-    let containers_size: i64 = containers.iter().filter_map(|c| c.size_rw).sum();
-
-    let volumes_resp = client.list_volumes(None::<ListVolumesOptions>).await?;
-    let volumes = volumes_resp.volumes.unwrap_or_default();
-    let volumes_count = volumes.len() as i64;
-    let volumes_size: i64 = volumes
-        .iter()
-        .filter_map(|v| v.usage_data.as_ref())
-        .map(|u| u.size.max(0))
-        .sum();
-
-    // Build cache size: try df endpoint, fall back to 0 if the aggregate
-    // fields aren't populated (Bollard/API version mismatch).
-    let build_cache_size: i64 = client
-        .df(None)
+/// Make a raw HTTP GET to the Docker Unix socket and return parsed JSON.
+/// Bypasses Bollard entirely to avoid field-name mismatches in the df
+/// response (Bollard 0.20 expects names the Docker API doesn't use).
+async fn raw_docker_get(socket_path: &str, path: &str) -> Result<serde_json::Value> {
+    let mut stream = UnixStream::connect(socket_path)
         .await
-        .ok()
-        .and_then(|df| df.build_cache_disk_usage)
-        .and_then(|b| b.total_size)
-        .unwrap_or(0);
+        .map_err(DockerLiteError::Io)?;
+
+    let req = format!("GET {path} HTTP/1.0\r\nHost: localhost\r\nAccept: application/json\r\n\r\n");
+    stream
+        .write_all(req.as_bytes())
+        .await
+        .map_err(DockerLiteError::Io)?;
+
+    let mut buf = Vec::new();
+    stream
+        .read_to_end(&mut buf)
+        .await
+        .map_err(DockerLiteError::Io)?;
+
+    let text = String::from_utf8_lossy(&buf);
+    let body_start = text.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+    serde_json::from_str(&text[body_start..]).map_err(DockerLiteError::Serialization)
+}
+
+fn sum_i64(arr: Option<&Vec<serde_json::Value>>, key: &str) -> i64 {
+    arr.map(|a| a.iter().filter_map(|v| v.get(key)?.as_i64()).sum())
+        .unwrap_or(0)
+}
+
+fn sum_nested_i64(arr: Option<&Vec<serde_json::Value>>, outer: &str, inner: &str) -> i64 {
+    arr.map(|a| {
+        a.iter()
+            .filter_map(|v| v.get(outer)?.get(inner)?.as_i64())
+            .filter(|&s| s > 0)
+            .sum()
+    })
+    .unwrap_or(0)
+}
+
+/// Fetch Docker disk usage via a raw `/system/df` request.
+/// Parses the JSON directly because Bollard 0.20's typed response
+/// uses field names that don't match the Docker API.
+pub async fn get_disk_usage(socket_path: &str) -> Result<DiskUsageResponse> {
+    let df = raw_docker_get(socket_path, "/system/df").await?;
+
+    let images = df.get("Images").and_then(|v| v.as_array());
+    let images_count = images.map(|a| a.len()).unwrap_or(0) as i64;
+    let images_size = sum_i64(images, "Size");
+
+    let containers = df.get("Containers").and_then(|v| v.as_array());
+    let containers_count = containers.map(|a| a.len()).unwrap_or(0) as i64;
+    let containers_size = sum_i64(containers, "SizeRw");
+
+    let volumes = df.get("Volumes").and_then(|v| v.as_array());
+    let volumes_count = volumes.map(|a| a.len()).unwrap_or(0) as i64;
+    let volumes_size = sum_nested_i64(volumes, "UsageData", "Size");
+
+    let build_cache = df.get("BuildCache").and_then(|v| v.as_array());
+    let build_cache_size = sum_i64(build_cache, "Size");
 
     Ok(DiskUsageResponse {
         images_count,

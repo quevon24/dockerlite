@@ -43,6 +43,11 @@ impl DockerState {
         })
     }
 
+    /// Get the current socket path.
+    pub fn socket_path(&self) -> String {
+        self.socket_path.read().expect("socket_path lock poisoned").clone()
+    }
+
     /// Reconnect to a different Docker socket.
     pub fn reconnect(&self, new_path: &str) -> crate::error::Result<()> {
         validate_socket(new_path)?;

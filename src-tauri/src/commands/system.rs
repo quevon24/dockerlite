@@ -16,8 +16,8 @@ pub async fn get_system_info(
 pub async fn get_disk_usage(
     docker: State<'_, DockerState>,
 ) -> Result<DiskUsageResponse, DockerLiteError> {
-    let client = docker.client()?;
-    crate::docker::system::get_disk_usage(&client).await
+    let path = docker.socket_path();
+    crate::docker::system::get_disk_usage(&path).await
 }
 
 #[tauri::command]

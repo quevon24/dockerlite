@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#0d1117"/>
+  <circle cx="256" cy="256" r="234" fill="none" stroke="#0db7ed" stroke-width="6" opacity="0.3"/>
+  <!-- Container/Box icon (based on Lucide Box) -->
+  <g transform="translate(128, 120) scale(1.6)">
+    <!-- Top face -->
+    <path d="M100 28L168 64V96L100 60V28Z" fill="#0db7ed" opacity="0.9"/>
+    <path d="M100 28L32 64V96L100 60V28Z" fill="#0db7ed" opacity="0.7"/>
+    <!-- Front face -->
+    <path d="M32 96L100 132V196L32 160V96Z" fill="#0db7ed" opacity="0.5"/>
+    <!-- Side face -->
+    <path d="M168 96L100 132V196L168 160V96Z" fill="#0db7ed" opacity="0.35"/>
+    <!-- Edges -->
+    <path d="M100 28L32 64L100 100L168 64Z" fill="none" stroke="#0db7ed" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M32 64V160L100 196V100" fill="none" stroke="#0db7ed" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M168 64V160L100 196" fill="none" stroke="#0db7ed" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M100 100V196" fill="none" stroke="#0db7ed" stroke-width="4"/>
+  </g>
+</svg>

@@ -5,10 +5,26 @@ mod state;
 
 use state::{DockerState, ExecRegistry, MinimizeToTrayFlag, StreamRegistry};
 use tauri::{
+    image::Image,
     Manager,
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
 };
+
+/// Restore a hidden window with a short delay so the window manager
+/// processes the show before we attempt to set focus. Without this,
+/// GNOME/Wayland leaves the title bar unresponsive after restore.
+fn restore_window(handle: &tauri::AppHandle) {
+    let handle = handle.clone();
+    std::thread::spawn(move || {
+        if let Some(win) = handle.get_webview_window("main") {
+            let _ = win.show();
+            let _ = win.unminimize();
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            let _ = win.set_focus();
+        }
+    });
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -27,30 +43,23 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &quit])?;
 
+            // Use a dedicated tray icon sized for system trays
+            let tray_icon = Image::from_path("icons/tray-icon.png")
+                .or_else(|_| Image::from_path("src-tauri/icons/tray-icon.png"))
+                .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
+
             TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(tray_icon)
                 .tooltip("DockerLite")
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open" => {
-                        if let Some(win) = app.get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.unminimize();
-                            let _ = win.set_focus();
-                        }
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
+                    "open" => restore_window(app),
+                    "quit" => app.exit(0),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let tauri::tray::TrayIconEvent::Click { .. } = event {
-                        if let Some(win) = tray.app_handle().get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.unminimize();
-                            let _ = win.set_focus();
-                        }
+                        restore_window(tray.app_handle());
                     }
                 })
                 .build(app)?;

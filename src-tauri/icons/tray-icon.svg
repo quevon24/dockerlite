@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <!-- Box icon filling the canvas, no background circle -->
+  <g transform="translate(4, 8)">
+    <!-- Top face -->
+    <path d="M60 4L116 36V52L60 20V4Z" fill="#0db7ed" opacity="0.9"/>
+    <path d="M60 4L4 36V52L60 20V4Z" fill="#0db7ed" opacity="0.7"/>
+    <!-- Front face -->
+    <path d="M4 52L60 84V120L4 88V52Z" fill="#0db7ed" opacity="0.5"/>
+    <!-- Side face -->
+    <path d="M116 52L60 84V120L116 88V52Z" fill="#0db7ed" opacity="0.35"/>
+    <!-- Edges -->
+    <path d="M60 4L4 36L60 68L116 36Z" fill="none" stroke="#0db7ed" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M4 36V88L60 120V68" fill="none" stroke="#0db7ed" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M116 36V88L60 120" fill="none" stroke="#0db7ed" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M60 68V120" fill="none" stroke="#0db7ed" stroke-width="3"/>
+  </g>
+</svg>

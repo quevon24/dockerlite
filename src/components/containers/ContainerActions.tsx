@@ -18,6 +18,7 @@ import {
   unpauseContainer,
   removeContainer,
 } from "../../lib/tauri";
+import { useToast } from "../ui/Toast";
 import ConfirmDialog from "../ui/ConfirmDialog";
 
 export type ContainerActionKind =
@@ -27,6 +28,15 @@ export type ContainerActionKind =
   | "pause"
   | "unpause"
   | "remove";
+
+const ACTION_LABELS: Record<ContainerActionKind, string> = {
+  start: "Starting",
+  stop: "Stopping",
+  restart: "Restarting",
+  pause: "Pausing",
+  unpause: "Unpausing",
+  remove: "Removing",
+};
 
 interface ContainerActionsProps {
   container: ContainerInfo;
@@ -41,6 +51,7 @@ export default function ContainerActions({
   onAction,
 }: ContainerActionsProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const { toast } = useToast();
 
   const isRunning = container.state === "running";
   const isPaused = container.state === "paused";
@@ -50,10 +61,19 @@ export default function ContainerActions({
     container.state === "dead";
 
   const run = async (fn: () => Promise<void>, kind: ContainerActionKind) => {
+    toast(
+      `${ACTION_LABELS[kind]} ${container.name}`,
+      undefined,
+      "info",
+    );
     try {
       await fn();
     } catch (e) {
-      console.error("Container action failed:", e);
+      toast(
+        `Failed to ${kind} ${container.name}`,
+        String(e),
+        "error",
+      );
     } finally {
       onAction(kind);
     }

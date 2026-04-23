@@ -6,6 +6,7 @@ import {
   restartContainer,
   removeContainer,
 } from "../../lib/tauri";
+import { useToast } from "../ui/Toast";
 import ConfirmDialog from "../ui/ConfirmDialog";
 
 interface BulkActionsProps {
@@ -20,15 +21,31 @@ export default function BulkActions({
   onClear,
 }: BulkActionsProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const { toast } = useToast();
 
-  const runAll = async (fn: (id: string) => Promise<void>) => {
-    await Promise.allSettled(selectedIds.map((id) => fn(id)));
+  const runAll = async (
+    fn: (id: string) => Promise<void>,
+    label: string,
+  ) => {
+    const count = selectedIds.length;
+    toast(`${label} ${count} container${count > 1 ? "s" : ""}`, undefined, "info");
+
+    const results = await Promise.allSettled(selectedIds.map((id) => fn(id)));
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      toast(
+        `${failed.length} container${failed.length > 1 ? "s" : ""} failed`,
+        (failed[0] as PromiseRejectedResult).reason?.toString(),
+        "error",
+      );
+    }
+
     onAction();
     onClear();
   };
 
   const deleteAll = async () => {
-    await runAll((id) => removeContainer(id, true));
+    await runAll((id) => removeContainer(id, true), "Removing");
   };
 
   return (
@@ -39,19 +56,19 @@ export default function BulkActions({
         </span>
         <div className="h-4 w-px bg-border mx-1" />
         <button
-          onClick={() => runAll(startContainer)}
+          onClick={() => runAll(startContainer, "Starting")}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded text-sm text-text-secondary hover:text-success hover:bg-surface-raised transition-colors"
         >
           <Play className="w-3.5 h-3.5" /> Start
         </button>
         <button
-          onClick={() => runAll(stopContainer)}
+          onClick={() => runAll(stopContainer, "Stopping")}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded text-sm text-text-secondary hover:text-warning hover:bg-surface-raised transition-colors"
         >
           <Square className="w-3.5 h-3.5" /> Stop
         </button>
         <button
-          onClick={() => runAll(restartContainer)}
+          onClick={() => runAll(restartContainer, "Restarting")}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded text-sm text-text-secondary hover:text-accent hover:bg-surface-raised transition-colors"
         >
           <RotateCw className="w-3.5 h-3.5" /> Restart

@@ -2,7 +2,7 @@ use tauri::State;
 
 use crate::docker::system::{DiskUsageResponse, PruneResult, SystemInfoResponse};
 use crate::error::DockerLiteError;
-use crate::state::DockerState;
+use crate::state::{DockerState, MinimizeToTrayFlag};
 
 #[tauri::command]
 pub async fn get_system_info(
@@ -18,6 +18,15 @@ pub async fn get_disk_usage(
 ) -> Result<DiskUsageResponse, DockerLiteError> {
     let path = docker.socket_path();
     crate::docker::system::get_disk_usage(&path).await
+}
+
+#[tauri::command]
+pub async fn set_minimize_to_tray(
+    enabled: bool,
+    flag: State<'_, MinimizeToTrayFlag>,
+) -> Result<(), DockerLiteError> {
+    flag.set(enabled);
+    Ok(())
 }
 
 #[tauri::command]

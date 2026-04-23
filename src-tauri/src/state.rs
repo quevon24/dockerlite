@@ -4,6 +4,7 @@ use std::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
 
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::io::AsyncWrite;
 
 use crate::error::{DockerLiteError, validate_socket};
@@ -143,6 +144,30 @@ impl ExecRegistry {
 }
 
 impl Default for ExecRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Global flag checked by the close_requested handler to decide
+/// whether to hide the window or quit the app.
+pub struct MinimizeToTrayFlag(AtomicBool);
+
+impl MinimizeToTrayFlag {
+    pub fn new() -> Self {
+        Self(AtomicBool::new(false))
+    }
+
+    pub fn get(&self) -> bool {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    pub fn set(&self, value: bool) {
+        self.0.store(value, Ordering::Relaxed);
+    }
+}
+
+impl Default for MinimizeToTrayFlag {
     fn default() -> Self {
         Self::new()
     }

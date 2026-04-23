@@ -74,8 +74,23 @@ The app opens at 1280x800 and connects to `/var/run/docker.sock` by default. Cha
 ## Build
 
 ```bash
-# Build optimized release
+# Build all bundle formats (AppImage, .deb, .rpm)
 cargo tauri build
+
+# Or build a specific format
+cargo tauri build --bundles deb
+cargo tauri build --bundles appimage
+cargo tauri build --bundles rpm
+```
+
+**AppImage requires FUSE.** If the build fails with `failed to run linuxdeploy`, install FUSE:
+
+```bash
+# Arch Linux
+sudo pacman -S fuse2
+
+# Debian/Ubuntu
+sudo apt install libfuse2
 ```
 
 Output binaries are in `src-tauri/target/release/bundle/`:
@@ -85,6 +100,8 @@ Output binaries are in `src-tauri/target/release/bundle/`:
 | AppImage | `appimage/DockerLite_*.AppImage` |
 | .deb | `deb/DockerLite_*.deb` |
 | .rpm | `rpm/DockerLite-*.rpm` |
+
+The raw binary is also available at `src-tauri/target/release/dockerlite` and can be run directly.
 
 ## Architecture
 

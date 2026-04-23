@@ -8,6 +8,7 @@ export interface AppSettings {
   refreshIntervalNetworks: number;
   theme: "dark" | "light";
   logBufferSize: number;
+  minimizeToTray: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -18,6 +19,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   refreshIntervalNetworks: 10000,
   theme: "dark",
   logBufferSize: 10000,
+  minimizeToTray: false,
 };
 
 const STORE_PATH = "settings.json";

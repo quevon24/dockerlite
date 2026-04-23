@@ -120,6 +120,28 @@ export default function SettingsPage() {
         </section>
 
         <section className="bg-surface-raised border border-border rounded-lg p-5">
+          <h2 className="text-base font-medium mb-4">Window Behavior</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm text-text-primary">Minimize to tray on close</span>
+              <p className="text-xs text-text-muted mt-0.5">
+                Hide the window to the system tray instead of quitting.
+                Right-click the tray icon to open or quit.
+              </p>
+            </div>
+            <Switch.Root
+              checked={settings.minimizeToTray}
+              onCheckedChange={(checked) =>
+                update({ minimizeToTray: checked })
+              }
+              className="w-10 h-5 rounded-full bg-surface-overlay data-[state=checked]:bg-docker-blue transition-colors"
+            >
+              <Switch.Thumb className="block w-4 h-4 rounded-full bg-text-primary translate-x-0.5 transition-transform data-[state=checked]:translate-x-[22px]" />
+            </Switch.Root>
+          </div>
+        </section>
+
+        <section className="bg-surface-raised border border-border rounded-lg p-5">
           <h2 className="text-base font-medium mb-4">Log Viewer</h2>
           <div className="flex items-center justify-between">
             <div>

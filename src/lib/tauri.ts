@@ -4,6 +4,10 @@ import type {
   VolumeInfo, NetworkInfo, PruneResult, LogLine, StatsSnapshot,
 } from "./types";
 
+export async function setMinimizeToTray(enabled: boolean): Promise<void> {
+  return invoke("set_minimize_to_tray", { enabled });
+}
+
 export async function reconnectDocker(socketPath: string): Promise<void> {
   return invoke("reconnect_docker", { socketPath });
 }

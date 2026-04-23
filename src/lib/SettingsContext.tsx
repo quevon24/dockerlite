@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { type AppSettings, DEFAULT_SETTINGS, loadSettings, saveSettings } from "./store";
+import { setMinimizeToTray } from "./tauri";
 
 interface SettingsContextValue {
   settings: AppSettings;
@@ -25,6 +26,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     loadSettings().then((s) => {
       setSettings(s);
       applyTheme(s.theme);
+      setMinimizeToTray(s.minimizeToTray).catch(() => {});
       setLoading(false);
     });
   }, []);
@@ -34,6 +36,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       const next = { ...prev, ...partial };
       saveSettings(next).catch(() => {});
       if (partial.theme) applyTheme(partial.theme);
+      if (partial.minimizeToTray !== undefined) {
+        setMinimizeToTray(partial.minimizeToTray).catch(() => {});
+      }
       return next;
     });
   }, []);

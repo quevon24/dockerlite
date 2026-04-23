@@ -3,52 +3,19 @@ mod docker;
 mod error;
 mod state;
 
-use std::sync::Mutex;
-
 use state::{DockerState, ExecRegistry, MinimizeToTrayFlag, StreamRegistry};
 use tauri::{
     image::Image,
-    Manager, PhysicalPosition, PhysicalSize,
+    Manager,
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
 };
 
-/// Saved window geometry so we can restore to the same monitor/position.
-struct SavedGeometry {
-    position: Option<PhysicalPosition<i32>>,
-    size: Option<PhysicalSize<u32>>,
-}
-
-static SAVED_GEOMETRY: Mutex<SavedGeometry> = Mutex::new(SavedGeometry {
-    position: None,
-    size: None,
-});
-
-fn save_window_geometry(win: &tauri::WebviewWindow) {
-    let mut geo = SAVED_GEOMETRY.lock().unwrap();
-    geo.position = win.outer_position().ok();
-    geo.size = win.outer_size().ok();
-}
-
-/// Register the close handler on a window. When minimize-to-tray is
-/// enabled, saves geometry before the window is destroyed.
-fn register_close_handler(win: &tauri::WebviewWindow, handle: tauri::AppHandle) {
-    win.on_window_event(move |event| {
-        if let tauri::WindowEvent::CloseRequested { .. } = event {
-            let flag = handle.state::<MinimizeToTrayFlag>();
-            if flag.get() {
-                if let Some(w) = handle.get_webview_window("main") {
-                    save_window_geometry(&w);
-                }
-            }
-        }
-    });
-}
-
-/// Restore or recreate the main window. If it was destroyed (minimize-to-tray),
-/// a fresh window is built. Works on both Wayland and X11 without CSD bugs.
+/// Restore or recreate the main window at the default size.
+/// On Wayland, compositors ignore app-requested positions and their
+/// CSD handling makes geometry save/restore unreliable, so we always
+/// use the default dimensions and let the compositor place the window.
 fn restore_window(handle: &tauri::AppHandle) {
-    // If window still exists, just focus it
     if let Some(win) = handle.get_webview_window("main") {
         let _ = win.unminimize();
         let _ = win.show();
@@ -56,33 +23,18 @@ fn restore_window(handle: &tauri::AppHandle) {
         return;
     }
 
-    // Recreate the window from saved geometry
-    let geo = SAVED_GEOMETRY.lock().unwrap();
-    let (width, height) = geo
-        .size
-        .map(|s| (s.width as f64, s.height as f64))
-        .unwrap_or((1280.0, 800.0));
-    let position = geo.position;
-    drop(geo);
-
-    let mut builder = tauri::WebviewWindowBuilder::new(
+    let builder = tauri::WebviewWindowBuilder::new(
         handle,
         "main",
         tauri::WebviewUrl::App(Default::default()),
     )
     .title("DockerLite")
-    .inner_size(width, height)
+    .inner_size(1280.0, 800.0)
     .min_inner_size(900.0, 600.0)
     .resizable(true)
     .decorations(true);
 
-    if let Some(pos) = position {
-        builder = builder.position(pos.x as f64, pos.y as f64);
-    }
-
-    if let Ok(win) = builder.build() {
-        register_close_handler(&win, handle.clone());
-    }
+    let _ = builder.build();
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -113,7 +65,11 @@ pub fn run() {
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => restore_window(app),
-                    "quit" => app.exit(0),
+                    "quit" => {
+                        // Clear the flag so ExitRequested handler lets us exit
+                        app.state::<MinimizeToTrayFlag>().set(false);
+                        app.exit(0);
+                    }
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -123,10 +79,9 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Register close handler on the initial window
-            if let Some(win) = app.get_webview_window("main") {
-                register_close_handler(&win, app.app_handle().clone());
-            }
+            // No close_requested handler needed. The window simply closes
+            // and RunEvent::ExitRequested keeps the app alive when the
+            // minimize-to-tray flag is set.
 
             Ok(())
         })

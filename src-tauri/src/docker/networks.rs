@@ -21,8 +21,12 @@ pub struct NetworkInfo {
     pub driver: String,
     pub scope: String,
     pub internal: bool,
+    pub enable_ipv6: bool,
+    pub attachable: bool,
+    pub ingress: bool,
     pub containers: Vec<NetworkContainer>,
     pub labels: HashMap<String, String>,
+    pub options: HashMap<String, String>,
 }
 
 /// List all networks. Uses inspect_network per network to get connected
@@ -57,8 +61,12 @@ pub async fn list_all(client: &Docker) -> Result<Vec<NetworkInfo>> {
             driver: n.driver.unwrap_or_default(),
             scope: n.scope.unwrap_or_default(),
             internal: n.internal.unwrap_or(false),
+            enable_ipv6: n.enable_ipv6.unwrap_or(false),
+            attachable: n.attachable.unwrap_or(false),
+            ingress: n.ingress.unwrap_or(false),
             containers,
-            labels: Default::default(),
+            labels: n.labels.unwrap_or_default(),
+            options: n.options.unwrap_or_default(),
         });
     }
 

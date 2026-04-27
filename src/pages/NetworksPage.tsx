@@ -1,19 +1,23 @@
 import { useState } from "react";
 import { Network, Trash2, RefreshCw } from "lucide-react";
 import { useNetworks } from "../lib/hooks/useNetworks";
+import type { NetworkInfo } from "../lib/types";
 import { removeNetwork } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import NetworkDetailPanel from "../components/networks/NetworkDetailPanel";
 
 const BUILTIN_NETWORKS = ["bridge", "host", "none"];
 
 export default function NetworksPage() {
-  const { data, error, loading, refresh } = useNetworks();
+  const { data: rawData, error, loading, refresh } = useNetworks();
+  const data = [...rawData].sort((a, b) => a.name.localeCompare(b.name));
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     name: string;
   } | null>(null);
+  const [detailNetwork, setDetailNetwork] = useState<NetworkInfo | null>(null);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -69,7 +73,12 @@ export default function NetworksPage() {
             return (
               <div
                 key={net.id}
-                className="bg-surface-raised border border-border rounded-lg p-4"
+                onClick={() => setDetailNetwork(net)}
+                className={`bg-surface-raised border rounded-lg p-4 cursor-pointer transition-colors ${
+                  detailNetwork?.id === net.id
+                    ? "border-docker-blue/50 bg-surface-overlay/40"
+                    : "border-border hover:border-border hover:bg-surface-overlay/20"
+                }`}
               >
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-text-primary font-medium">{net.name}</span>
@@ -84,9 +93,10 @@ export default function NetworksPage() {
                   )}
                   {!isBuiltin && (
                     <button
-                      onClick={() =>
-                        setDeleteTarget({ id: net.id, name: net.name })
-                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget({ id: net.id, name: net.name });
+                      }}
                       className="ml-auto p-1.5 rounded hover:bg-surface-overlay text-text-muted hover:text-danger transition-colors"
                       aria-label="Delete network"
                     >
@@ -145,6 +155,11 @@ export default function NetworksPage() {
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
+      />
+
+      <NetworkDetailPanel
+        network={detailNetwork}
+        onClose={() => setDetailNetwork(null)}
       />
     </div>
   );

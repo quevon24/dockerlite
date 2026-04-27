@@ -1,7 +1,8 @@
 import { useState } from "react";
 import * as Checkbox from "@radix-ui/react-checkbox";
-import { Layers, Trash2, RefreshCw, Filter, Check, X } from "lucide-react";
+import { Layers, Trash2, RefreshCw, Filter, Check, X, ChevronUp, ChevronDown } from "lucide-react";
 import { useImages } from "../lib/hooks/useImages";
+import type { ImageInfo } from "../lib/types";
 import { removeImage } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -32,6 +33,28 @@ function imageName(repoTags: string[], shortId: string): string {
   return tag ?? shortId;
 }
 
+type SortKey = "name" | "id" | "created" | "size";
+type SortDir = "asc" | "desc";
+
+function sortImages(images: ImageInfo[], key: SortKey, dir: SortDir): ImageInfo[] {
+  const sorted = [...images].sort((a, b) => {
+    let cmp = 0;
+    if (key === "name") {
+      const nameA = imageName(a.repoTags, a.shortId).toLowerCase();
+      const nameB = imageName(b.repoTags, b.shortId).toLowerCase();
+      cmp = nameA.localeCompare(nameB);
+    } else if (key === "id") {
+      cmp = a.shortId.localeCompare(b.shortId);
+    } else if (key === "created") {
+      cmp = a.created - b.created;
+    } else if (key === "size") {
+      cmp = a.size - b.size;
+    }
+    return dir === "asc" ? cmp : -cmp;
+  });
+  return sorted;
+}
+
 export default function ImagesPage() {
   const { data, error, loading, refresh } = useImages();
   const { toast } = useToast();
@@ -42,8 +65,20 @@ export default function ImagesPage() {
     name: string;
   } | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("created");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const filtered = showDangling ? data.filter((i) => i.dangling) : data;
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const base = showDangling ? data.filter((i) => i.dangling) : data;
+  const filtered = sortImages(base, sortKey, sortDir);
   const danglingCount = data.filter((i) => i.dangling).length;
 
   const toggleSelect = (id: string) => {
@@ -203,10 +238,32 @@ export default function ImagesPage() {
                     </Checkbox.Indicator>
                   </Checkbox.Root>
                 </th>
-                <th className="px-4 py-2 text-left font-medium">Repository:Tag</th>
-                <th className="px-4 py-2 text-left font-medium">ID</th>
-                <th className="px-4 py-2 text-left font-medium">Created</th>
-                <th className="px-4 py-2 text-left font-medium">Size</th>
+                {(
+                  [
+                    { key: "name" as SortKey, label: "Repository:Tag" },
+                    { key: "id" as SortKey, label: "ID" },
+                    { key: "created" as SortKey, label: "Created" },
+                    { key: "size" as SortKey, label: "Size" },
+                  ] as const
+                ).map(({ key, label }) => (
+                  <th key={key} className="px-4 py-2 text-left font-medium">
+                    <button
+                      onClick={() => handleSort(key)}
+                      className="flex items-center gap-1 hover:text-text-primary transition-colors"
+                    >
+                      {label}
+                      {sortKey === key ? (
+                        sortDir === "asc" ? (
+                          <ChevronUp className="w-3 h-3" />
+                        ) : (
+                          <ChevronDown className="w-3 h-3" />
+                        )
+                      ) : (
+                        <ChevronUp className="w-3 h-3 opacity-20" />
+                      )}
+                    </button>
+                  </th>
+                ))}
                 <th className="px-4 py-2 w-10"></th>
               </tr>
             </thead>

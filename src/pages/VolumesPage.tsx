@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { HardDrive, Trash2, RefreshCw, Filter } from "lucide-react";
+import { HardDrive, Trash2, RefreshCw, Filter, ChevronUp, ChevronDown } from "lucide-react";
 import { useVolumes } from "../lib/hooks/useVolumes";
+import type { VolumeInfo } from "../lib/types";
 import { removeVolume } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -13,14 +14,40 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
+type SortKey = "name" | "driver" | "size" | "containers";
+type SortDir = "asc" | "desc";
+
+function sortVolumes(volumes: VolumeInfo[], key: SortKey, dir: SortDir): VolumeInfo[] {
+  return [...volumes].sort((a, b) => {
+    let cmp = 0;
+    if (key === "name") cmp = a.name.localeCompare(b.name);
+    else if (key === "driver") cmp = a.driver.localeCompare(b.driver);
+    else if (key === "size") cmp = a.size - b.size;
+    else if (key === "containers") cmp = a.refCount - b.refCount;
+    return dir === "asc" ? cmp : -cmp;
+  });
+}
+
 export default function VolumesPage() {
   const { data, error, loading, refresh } = useVolumes();
   const { toast } = useToast();
   const [showOrphans, setShowOrphans] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
 
   const orphanCount = data.filter((v) => v.refCount === 0).length;
-  const filtered = showOrphans ? data.filter((v) => v.refCount === 0) : data;
+  const base = showOrphans ? data.filter((v) => v.refCount === 0) : data;
+  const filtered = sortVolumes(base, sortKey, sortDir);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -87,10 +114,32 @@ export default function VolumesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-overlay text-text-secondary text-xs uppercase tracking-wide">
-                <th className="px-4 py-2 text-left font-medium">Name</th>
-                <th className="px-4 py-2 text-left font-medium">Driver</th>
-                <th className="px-4 py-2 text-left font-medium">Size</th>
-                <th className="px-4 py-2 text-left font-medium">Containers</th>
+                {(
+                  [
+                    { key: "name" as SortKey, label: "Name" },
+                    { key: "driver" as SortKey, label: "Driver" },
+                    { key: "size" as SortKey, label: "Size" },
+                    { key: "containers" as SortKey, label: "Containers" },
+                  ] as const
+                ).map(({ key, label }) => (
+                  <th key={key} className="px-4 py-2 text-left font-medium">
+                    <button
+                      onClick={() => handleSort(key)}
+                      className="flex items-center gap-1 hover:text-text-primary transition-colors"
+                    >
+                      {label}
+                      {sortKey === key ? (
+                        sortDir === "asc" ? (
+                          <ChevronUp className="w-3 h-3" />
+                        ) : (
+                          <ChevronDown className="w-3 h-3" />
+                        )
+                      ) : (
+                        <ChevronUp className="w-3 h-3 opacity-20" />
+                      )}
+                    </button>
+                  </th>
+                ))}
                 <th className="px-4 py-2 text-left font-medium">Mount</th>
                 <th className="px-4 py-2 w-10"></th>
               </tr>

@@ -56,3 +56,31 @@ pub async fn remove(client: &Docker, id: &str, force: bool) -> Result<()> {
     client.remove_image(id, Some(options), None).await?;
     Ok(())
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageLayer {
+    pub id: String,
+    pub created: i64,
+    pub created_by: String,
+    pub tags: Vec<String>,
+    pub size: i64,
+    pub comment: String,
+}
+
+/// Return the layer history of an image.
+pub async fn get_layers(client: &Docker, id: &str) -> Result<Vec<ImageLayer>> {
+    let history = client.image_history(id).await?;
+    let layers = history
+        .into_iter()
+        .map(|h| ImageLayer {
+            id: h.id,
+            created: h.created,
+            created_by: h.created_by,
+            tags: h.tags,
+            size: h.size,
+            comment: h.comment,
+        })
+        .collect();
+    Ok(layers)
+}

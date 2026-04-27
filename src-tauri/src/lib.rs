@@ -109,6 +109,7 @@ pub fn run() {
             commands::containers::stop_stats_stream,
             commands::images::list_images,
             commands::images::remove_image,
+            commands::images::get_image_layers,
             commands::volumes::list_volumes,
             commands::volumes::remove_volume,
             commands::networks::list_networks,

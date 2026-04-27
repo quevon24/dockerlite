@@ -6,6 +6,7 @@ import type { ImageInfo } from "../lib/types";
 import { removeImage } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import ImageDetailPanel from "../components/images/ImageDetailPanel";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -65,6 +66,7 @@ export default function ImagesPage() {
     name: string;
   } | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [detailImage, setDetailImage] = useState<ImageInfo | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -271,15 +273,18 @@ export default function ImagesPage() {
               {filtered.map((img) => (
                 <tr
                   key={img.id}
-                  className={`border-b border-border transition-colors ${
+                  onClick={() => setDetailImage(img)}
+                  className={`border-b border-border transition-colors cursor-pointer ${
                     img.dangling
-                      ? "bg-warning/5"
-                      : selected.has(img.id)
-                        ? "bg-surface-overlay/40"
-                        : "hover:bg-surface-overlay/30"
+                      ? "bg-warning/5 hover:bg-warning/10"
+                      : detailImage?.id === img.id
+                        ? "bg-surface-overlay/60"
+                        : selected.has(img.id)
+                          ? "bg-surface-overlay/40 hover:bg-surface-overlay/50"
+                          : "hover:bg-surface-overlay/30"
                   }`}
                 >
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                     <Checkbox.Root
                       checked={selected.has(img.id)}
                       onCheckedChange={() => toggleSelect(img.id)}
@@ -322,7 +327,7 @@ export default function ImagesPage() {
                   <td className="px-4 py-2 text-xs text-text-secondary">
                     {formatBytes(img.size)}
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() =>
                         setDeleteTarget({
@@ -363,6 +368,11 @@ export default function ImagesPage() {
         destructive
         onConfirm={handleBulkDelete}
         onOpenChange={setBulkDeleteOpen}
+      />
+
+      <ImageDetailPanel
+        image={detailImage}
+        onClose={() => setDetailImage(null)}
       />
     </div>
   );

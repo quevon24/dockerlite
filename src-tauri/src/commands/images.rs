@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::docker::images::ImageInfo;
+use crate::docker::images::{ImageInfo, ImageLayer};
 use crate::error::DockerLiteError;
 use crate::state::DockerState;
 
@@ -20,4 +20,13 @@ pub async fn remove_image(
 ) -> Result<(), DockerLiteError> {
     let client = docker.client()?;
     crate::docker::images::remove(&client, &id, force).await
+}
+
+#[tauri::command]
+pub async fn get_image_layers(
+    id: String,
+    docker: State<'_, DockerState>,
+) -> Result<Vec<ImageLayer>, DockerLiteError> {
+    let client = docker.client()?;
+    crate::docker::images::get_layers(&client, &id).await
 }

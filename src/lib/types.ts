@@ -72,6 +72,15 @@ export interface ImageInfo {
   dangling: boolean;
 }
 
+export interface ImageLayer {
+  id: string;
+  created: number;
+  createdBy: string;
+  tags: string[];
+  size: number;
+  comment: string;
+}
+
 export interface VolumeInfo {
   name: string;
   driver: string;
@@ -95,8 +104,12 @@ export interface NetworkInfo {
   driver: string;
   scope: string;
   internal: boolean;
+  enableIpv6: boolean;
+  attachable: boolean;
+  ingress: boolean;
   containers: NetworkContainer[];
   labels: Record<string, string>;
+  options: Record<string, string>;
 }
 
 export interface PruneResult {

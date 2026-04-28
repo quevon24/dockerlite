@@ -48,10 +48,18 @@ A lightweight, native Docker Desktop replacement for Linux built with [Tauri](ht
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
   ```
 - **Node.js** >= 18 and npm
-- **Tauri system dependencies** (Arch Linux):
+- **Tauri system dependencies**:
+
+  Arch Linux:
   ```bash
   sudo pacman -S webkit2gtk-4.1 gtk3 libappindicator-gtk3 librsvg
   ```
+
+  Ubuntu/Debian:
+  ```bash
+  sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+  ```
+
   For other distros, see the [Tauri prerequisites guide](https://v2.tauri.app/start/prerequisites/).
 
 - **Tauri CLI**:
@@ -70,6 +78,71 @@ cargo tauri dev
 ```
 
 The app opens at 1280x800 and connects to `/var/run/docker.sock` by default. Change the socket path in Settings if needed.
+
+## Code Quality
+
+The project uses [lefthook](https://github.com/evilmartians/lefthook) to run quality checks as git hooks automatically on every commit and push.
+
+### Activate hooks
+
+Run this once after `npm install`:
+
+```bash
+npx lefthook install
+```
+
+Two hooks are registered:
+
+| Hook | Checks |
+|---|---|
+| pre-commit | rustfmt, ESLint, Prettier, TypeScript type check |
+| pre-push | Clippy (Rust linter) |
+
+### Run checks manually
+
+**Rust:**
+
+```bash
+# Auto-format all Rust files
+cargo fmt --manifest-path src-tauri/Cargo.toml
+
+# Check formatting without changing files (what the hook runs)
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+# Lint (fails on any warning)
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+```
+
+**Frontend:**
+
+```bash
+# Type check
+npm run typecheck
+
+# Lint (ESLint)
+npm run lint
+
+# Auto-format with Prettier
+npm run format
+
+# Check formatting without changing files (what the hook runs)
+npm run format:check
+
+# Run all frontend checks at once
+npm run check
+```
+
+### Required tools
+
+`rustfmt` and `clippy` ship with the Rust toolchain. If they are missing:
+
+```bash
+rustup component add rustfmt clippy
+```
+
+ESLint, Prettier, and lefthook are npm devDependencies — `npm install` is all that is needed.
+
+No extra system packages are required beyond the ones listed in [Prerequisites](#prerequisites).
 
 ## Build
 

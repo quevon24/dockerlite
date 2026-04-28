@@ -55,9 +55,7 @@ pub async fn prune_images(
 }
 
 #[tauri::command]
-pub async fn prune_volumes(
-    docker: State<'_, DockerState>,
-) -> Result<PruneResult, DockerLiteError> {
+pub async fn prune_volumes(docker: State<'_, DockerState>) -> Result<PruneResult, DockerLiteError> {
     let client = docker.client()?;
     crate::docker::system::prune_volumes(&client).await
 }

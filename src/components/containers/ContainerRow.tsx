@@ -56,21 +56,13 @@ export default function ContainerRow({
       <td className="px-3 py-2">
         <StatusBadge state={container.state} />
       </td>
-      <td className="px-3 py-2 font-medium text-text-primary">
-        {container.name}
-      </td>
-      <td className="px-3 py-2 text-text-secondary font-mono text-xs">
-        {container.image}
-      </td>
-      <td className="px-3 py-2 text-text-secondary text-xs">
-        {container.status || "-"}
-      </td>
+      <td className="px-3 py-2 font-medium text-text-primary">{container.name}</td>
+      <td className="px-3 py-2 text-text-secondary font-mono text-xs">{container.image}</td>
+      <td className="px-3 py-2 text-text-secondary text-xs">{container.status || "-"}</td>
       <td className="px-3 py-2 text-text-secondary font-mono text-xs">
         {formatPorts(container.ports)}
       </td>
-      <td className="px-3 py-2 text-text-muted font-mono text-xs">
-        {shortId(container.id)}
-      </td>
+      <td className="px-3 py-2 text-text-muted font-mono text-xs">{shortId(container.id)}</td>
       <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
         <ContainerActions container={container} onAction={() => onAction()} />
       </td>

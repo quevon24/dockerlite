@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use tauri::State;
 use tauri::ipc::Channel;
+use tauri::State;
 
 use crate::docker::containers::{ContainerInfo, LogLine, StatsSnapshot};
 use crate::error::DockerLiteError;
@@ -155,9 +155,7 @@ pub async fn stream_container_stats(
             while let Some(item) = stream.next().await {
                 match item {
                     Ok(stats) => {
-                        if let Some(snapshot) =
-                            crate::docker::containers::compute_stats(&stats)
-                        {
+                        if let Some(snapshot) = crate::docker::containers::compute_stats(&stats) {
                             if on_event.send(snapshot).is_err() {
                                 return;
                             }

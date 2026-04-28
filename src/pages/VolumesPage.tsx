@@ -148,19 +148,13 @@ export default function VolumesPage() {
               {filtered.map((vol) => (
                 <tr
                   key={vol.name}
-                  className={`border-b border-border ${
-                    vol.refCount === 0 ? "bg-warning/5" : ""
-                  }`}
+                  className={`border-b border-border ${vol.refCount === 0 ? "bg-warning/5" : ""}`}
                 >
                   <td className="px-4 py-2 font-mono text-xs text-text-primary truncate max-w-[220px]">
                     {vol.name}
                   </td>
-                  <td className="px-4 py-2 text-xs text-text-secondary">
-                    {vol.driver}
-                  </td>
-                  <td className="px-4 py-2 text-xs text-text-secondary">
-                    {formatBytes(vol.size)}
-                  </td>
+                  <td className="px-4 py-2 text-xs text-text-secondary">{vol.driver}</td>
+                  <td className="px-4 py-2 text-xs text-text-secondary">{formatBytes(vol.size)}</td>
                   <td className="px-4 py-2 text-xs">
                     {vol.refCount < 0 ? (
                       <span className="text-text-muted">N/A</span>

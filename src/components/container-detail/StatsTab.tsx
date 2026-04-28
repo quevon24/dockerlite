@@ -42,9 +42,7 @@ function ChartCard({ title, subtitle, children }: ChartCardProps) {
     <div className="bg-surface-raised border border-border rounded-lg p-4">
       <div className="flex items-baseline gap-2 mb-3">
         <h3 className="text-sm font-medium text-text-primary">{title}</h3>
-        {subtitle && (
-          <span className="text-xs text-text-muted">{subtitle}</span>
-        )}
+        {subtitle && <span className="text-xs text-text-muted">{subtitle}</span>}
       </div>
       <div className="h-48">{children}</div>
     </div>
@@ -63,11 +61,7 @@ export default function StatsTab({ containerId }: StatsTabProps) {
   }
 
   if (history.length === 0) {
-    return (
-      <div className="text-text-muted text-sm italic">
-        Waiting for stats...
-      </div>
-    );
+    return <div className="text-text-muted text-sm italic">Waiting for stats...</div>;
   }
 
   const memSubtitle = latest
@@ -188,10 +182,7 @@ export default function StatsTab({ containerId }: StatsTabProps) {
                 fontSize: 12,
               }}
               labelFormatter={(label) => formatTime(Number(label))}
-              formatter={(v, name) => [
-                formatBytes(Number(v)),
-                name === "networkRx" ? "RX" : "TX",
-              ]}
+              formatter={(v, name) => [formatBytes(Number(v)), name === "networkRx" ? "RX" : "TX"]}
             />
             <Area
               type="monotone"

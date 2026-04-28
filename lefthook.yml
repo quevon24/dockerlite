@@ -1,0 +1,19 @@
+pre-commit:
+  parallel: true
+  commands:
+    rustfmt:
+      glob: "src-tauri/**/*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+    tsc:
+      run: npx tsc --noEmit
+    eslint:
+      glob: "src/**/*.{ts,tsx}"
+      run: npx eslint {staged_files}
+    prettier:
+      glob: "src/**/*.{ts,tsx}"
+      run: npx prettier --check {staged_files}
+
+pre-push:
+  commands:
+    clippy:
+      run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings

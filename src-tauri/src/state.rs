@@ -7,7 +7,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::io::AsyncWrite;
 
-use crate::error::{DockerLiteError, validate_socket};
+use crate::error::{validate_socket, DockerLiteError};
 
 /// Holds the Docker client and connection metadata.
 /// Uses std::sync::RwLock so the lock is held only briefly (to clone the client).
@@ -46,15 +46,17 @@ impl DockerState {
 
     /// Get the current socket path.
     pub fn socket_path(&self) -> String {
-        self.socket_path.read().expect("socket_path lock poisoned").clone()
+        self.socket_path
+            .read()
+            .expect("socket_path lock poisoned")
+            .clone()
     }
 
     /// Reconnect to a different Docker socket.
     pub fn reconnect(&self, new_path: &str) -> crate::error::Result<()> {
         validate_socket(new_path)?;
-        let new_client =
-            Docker::connect_with_socket(new_path, 120, bollard::API_DEFAULT_VERSION)
-                .map_err(|e| DockerLiteError::Connection(e.to_string()))?;
+        let new_client = Docker::connect_with_socket(new_path, 120, bollard::API_DEFAULT_VERSION)
+            .map_err(|e| DockerLiteError::Connection(e.to_string()))?;
         *self.client.write().expect("DockerState lock poisoned") = Some(new_client);
         *self.socket_path.write().expect("socket_path lock poisoned") = new_path.to_string();
         Ok(())

@@ -1,11 +1,6 @@
 import { useState } from "react";
 import { Play, Square, RotateCw, Trash2, X } from "lucide-react";
-import {
-  startContainer,
-  stopContainer,
-  restartContainer,
-  removeContainer,
-} from "../../lib/tauri";
+import { startContainer, stopContainer, restartContainer, removeContainer } from "../../lib/tauri";
 import { useToast } from "../ui/Toast";
 import ConfirmDialog from "../ui/ConfirmDialog";
 
@@ -15,18 +10,11 @@ interface BulkActionsProps {
   onClear: () => void;
 }
 
-export default function BulkActions({
-  selectedIds,
-  onAction,
-  onClear,
-}: BulkActionsProps) {
+export default function BulkActions({ selectedIds, onAction, onClear }: BulkActionsProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { toast } = useToast();
 
-  const runAll = async (
-    fn: (id: string) => Promise<void>,
-    label: string,
-  ) => {
+  const runAll = async (fn: (id: string) => Promise<void>, label: string) => {
     const count = selectedIds.length;
     toast(`${label} ${count} container${count > 1 ? "s" : ""}`, undefined, "info");
 
@@ -51,9 +39,7 @@ export default function BulkActions({
   return (
     <>
       <div className="flex items-center gap-2 mb-3 bg-surface-overlay border border-border rounded-lg px-3 py-2">
-        <span className="text-sm text-text-primary font-medium">
-          {selectedIds.length} selected
-        </span>
+        <span className="text-sm text-text-primary font-medium">{selectedIds.length} selected</span>
         <div className="h-4 w-px bg-border mx-1" />
         <button
           onClick={() => runAll(startContainer, "Starting")}

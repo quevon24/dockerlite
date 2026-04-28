@@ -56,10 +56,18 @@ export default function ImageDetailPanel({ image, onClose }: Props) {
     setLoading(true);
     setError(null);
     getImageLayers(image.id)
-      .then((l) => { if (!cancelled) setLayers(l); })
-      .catch((e) => { if (!cancelled) setError(String(e)); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((l) => {
+        if (!cancelled) setLayers(l);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [image?.id]);
 
   useEffect(() => {
@@ -75,12 +83,7 @@ export default function ImageDetailPanel({ image, onClose }: Props) {
 
   return (
     <>
-      {open && (
-        <div
-          className="fixed inset-0 z-20 bg-black/30"
-          onClick={onClose}
-        />
-      )}
+      {open && <div className="fixed inset-0 z-20 bg-black/30" onClick={onClose} />}
       <div
         className={`fixed top-0 right-0 bottom-0 w-[520px] bg-surface border-l border-border shadow-2xl flex flex-col z-30 transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
       >
@@ -103,7 +106,9 @@ export default function ImageDetailPanel({ image, onClose }: Props) {
 
             <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
               <section>
-                <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Details</h3>
+                <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
+                  Details
+                </h3>
                 <div className="bg-surface-raised border border-border rounded-lg divide-y divide-border">
                   <Row label="ID" value={image.id.replace(/^sha256:/, "")} mono />
                   <Row label="Created" value={formatDate(image.created)} />
@@ -116,7 +121,9 @@ export default function ImageDetailPanel({ image, onClose }: Props) {
 
               {tags.length > 0 && (
                 <section>
-                  <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Tags</h3>
+                  <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
+                    Tags
+                  </h3>
                   <div className="flex flex-wrap gap-1.5">
                     {tags.map((tag) => (
                       <span
@@ -132,10 +139,14 @@ export default function ImageDetailPanel({ image, onClose }: Props) {
 
               {image.repoDigests.length > 0 && (
                 <section>
-                  <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Digests</h3>
+                  <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
+                    Digests
+                  </h3>
                   <div className="space-y-1">
                     {image.repoDigests.map((d) => (
-                      <p key={d} className="text-xs font-mono text-text-muted break-all">{d}</p>
+                      <p key={d} className="text-xs font-mono text-text-muted break-all">
+                        {d}
+                      </p>
                     ))}
                   </div>
                 </section>
@@ -145,12 +156,8 @@ export default function ImageDetailPanel({ image, onClose }: Props) {
                 <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
                   Layers {!loading && `(${layers.length})`}
                 </h3>
-                {loading && (
-                  <p className="text-xs text-text-muted">Loading layers...</p>
-                )}
-                {error && (
-                  <p className="text-xs text-danger">{error}</p>
-                )}
+                {loading && <p className="text-xs text-text-muted">Loading layers...</p>}
+                {error && <p className="text-xs text-danger">{error}</p>}
                 {!loading && !error && layers.length > 0 && (
                   <div className="bg-surface-raised border border-border rounded-lg overflow-hidden">
                     <table className="w-full text-xs">
@@ -192,7 +199,9 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   return (
     <div className="flex items-start gap-4 px-3 py-2">
       <span className="text-xs text-text-muted w-[90px] shrink-0 pt-0.5">{label}</span>
-      <span className={`text-xs text-text-primary break-all ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className={`text-xs text-text-primary break-all ${mono ? "font-mono" : ""}`}>
+        {value}
+      </span>
     </div>
   );
 }

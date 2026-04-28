@@ -1,14 +1,6 @@
 import { useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import {
-  MoreVertical,
-  Play,
-  Square,
-  RotateCw,
-  Pause,
-  PlayCircle,
-  Trash2,
-} from "lucide-react";
+import { MoreVertical, Play, Square, RotateCw, Pause, PlayCircle, Trash2 } from "lucide-react";
 import type { ContainerInfo } from "../../lib/types";
 import {
   startContainer,
@@ -21,13 +13,7 @@ import {
 import { useToast } from "../ui/Toast";
 import ConfirmDialog from "../ui/ConfirmDialog";
 
-export type ContainerActionKind =
-  | "start"
-  | "stop"
-  | "restart"
-  | "pause"
-  | "unpause"
-  | "remove";
+export type ContainerActionKind = "start" | "stop" | "restart" | "pause" | "unpause" | "remove";
 
 const ACTION_LABELS: Record<ContainerActionKind, string> = {
   start: "Starting",
@@ -46,34 +32,21 @@ interface ContainerActionsProps {
 const ITEM_CLASS =
   "flex items-center gap-2 px-3 py-1.5 text-sm rounded cursor-pointer outline-none data-[highlighted]:bg-surface-overlay";
 
-export default function ContainerActions({
-  container,
-  onAction,
-}: ContainerActionsProps) {
+export default function ContainerActions({ container, onAction }: ContainerActionsProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { toast } = useToast();
 
   const isRunning = container.state === "running";
   const isPaused = container.state === "paused";
   const isStopped =
-    container.state === "exited" ||
-    container.state === "created" ||
-    container.state === "dead";
+    container.state === "exited" || container.state === "created" || container.state === "dead";
 
   const run = async (fn: () => Promise<void>, kind: ContainerActionKind) => {
-    toast(
-      `${ACTION_LABELS[kind]} ${container.name}`,
-      undefined,
-      "info",
-    );
+    toast(`${ACTION_LABELS[kind]} ${container.name}`, undefined, "info");
     try {
       await fn();
     } catch (e) {
-      toast(
-        `Failed to ${kind} ${container.name}`,
-        String(e),
-        "error",
-      );
+      toast(`Failed to ${kind} ${container.name}`, String(e), "error");
     } finally {
       onAction(kind);
     }

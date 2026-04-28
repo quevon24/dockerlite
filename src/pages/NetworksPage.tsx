@@ -107,9 +107,7 @@ export default function NetworksPage() {
                     <span className="ml-auto text-xs text-text-muted italic">built-in</span>
                   )}
                 </div>
-                <div className="text-xs text-text-muted font-mono mb-2">
-                  {net.id.slice(0, 12)}
-                </div>
+                <div className="text-xs text-text-muted font-mono mb-2">{net.id.slice(0, 12)}</div>
                 {net.containers.length > 0 && (
                   <div className="mt-3 border-t border-border pt-3">
                     <div className="text-xs text-text-secondary font-medium mb-2">
@@ -117,17 +115,12 @@ export default function NetworksPage() {
                     </div>
                     <div className="grid grid-cols-1 gap-1">
                       {net.containers.map((c) => (
-                        <div
-                          key={c.containerId}
-                          className="flex items-center gap-3 text-xs"
-                        >
+                        <div key={c.containerId} className="flex items-center gap-3 text-xs">
                           <span className="text-text-primary font-medium">
                             {c.name || c.containerId.slice(0, 12)}
                           </span>
                           {c.ipv4Address && (
-                            <span className="text-text-muted font-mono">
-                              {c.ipv4Address}
-                            </span>
+                            <span className="text-text-muted font-mono">{c.ipv4Address}</span>
                           )}
                         </div>
                       ))}
@@ -135,9 +128,7 @@ export default function NetworksPage() {
                   </div>
                 )}
                 {net.containers.length === 0 && (
-                  <div className="text-xs text-text-muted italic mt-1">
-                    No containers connected
-                  </div>
+                  <div className="text-xs text-text-muted italic mt-1">No containers connected</div>
                 )}
               </div>
             );
@@ -157,10 +148,7 @@ export default function NetworksPage() {
         }}
       />
 
-      <NetworkDetailPanel
-        network={detailNetwork}
-        onClose={() => setDetailNetwork(null)}
-      />
+      <NetworkDetailPanel network={detailNetwork} onClose={() => setDetailNetwork(null)} />
     </div>
   );
 }

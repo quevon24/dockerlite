@@ -102,11 +102,7 @@ export default function ContainerTable() {
   return (
     <div>
       {selectedIds.length > 0 && (
-        <BulkActions
-          selectedIds={selectedIds}
-          onAction={handleAction}
-          onClear={clearSelection}
-        />
+        <BulkActions selectedIds={selectedIds} onAction={handleAction} onClear={clearSelection} />
       )}
       <div className="bg-surface-raised border border-border rounded-lg overflow-hidden">
         <table className="w-full text-sm">

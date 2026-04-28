@@ -39,9 +39,7 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <section className="bg-surface-raised border border-border rounded-lg p-5">
           <h2 className="text-base font-medium mb-4">Docker Connection</h2>
-          <label className="block text-sm text-text-secondary mb-2">
-            Socket path
-          </label>
+          <label className="block text-sm text-text-secondary mb-2">Socket path</label>
           <div className="flex gap-2">
             <input
               type="text"
@@ -62,20 +60,18 @@ export default function SettingsPage() {
               Test
             </button>
           </div>
-          <p className="text-xs text-text-muted mt-2">
-            Default: /var/run/docker.sock
-          </p>
+          <p className="text-xs text-text-muted mt-2">Default: /var/run/docker.sock</p>
         </section>
 
         <section className="bg-surface-raised border border-border rounded-lg p-5">
           <h2 className="text-base font-medium mb-4">Refresh Intervals</h2>
           <div className="space-y-4">
-            {([
+            {[
               { key: "refreshIntervalContainers" as const, label: "Containers" },
               { key: "refreshIntervalImages" as const, label: "Images" },
               { key: "refreshIntervalVolumes" as const, label: "Volumes" },
               { key: "refreshIntervalNetworks" as const, label: "Networks" },
-            ]).map(({ key, label }) => (
+            ].map(({ key, label }) => (
               <div key={key} className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">{label}</span>
                 <div className="flex gap-1">
@@ -103,15 +99,11 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <span className="text-sm text-text-primary">Dark mode</span>
-              <p className="text-xs text-text-muted mt-0.5">
-                Toggle between dark and light themes
-              </p>
+              <p className="text-xs text-text-muted mt-0.5">Toggle between dark and light themes</p>
             </div>
             <Switch.Root
               checked={settings.theme === "dark"}
-              onCheckedChange={(checked) =>
-                update({ theme: checked ? "dark" : "light" })
-              }
+              onCheckedChange={(checked) => update({ theme: checked ? "dark" : "light" })}
               className="w-10 h-5 rounded-full bg-surface-overlay data-[state=checked]:bg-docker-blue transition-colors"
             >
               <Switch.Thumb className="block w-4 h-4 rounded-full bg-text-primary translate-x-0.5 transition-transform data-[state=checked]:translate-x-[22px]" />
@@ -125,15 +117,13 @@ export default function SettingsPage() {
             <div>
               <span className="text-sm text-text-primary">Minimize to tray on close</span>
               <p className="text-xs text-text-muted mt-0.5">
-                Hide the window to the system tray instead of quitting.
-                Right-click the tray icon to open or quit.
+                Hide the window to the system tray instead of quitting. Right-click the tray icon to
+                open or quit.
               </p>
             </div>
             <Switch.Root
               checked={settings.minimizeToTray}
-              onCheckedChange={(checked) =>
-                update({ minimizeToTray: checked })
-              }
+              onCheckedChange={(checked) => update({ minimizeToTray: checked })}
               className="w-10 h-5 rounded-full bg-surface-overlay data-[state=checked]:bg-docker-blue transition-colors"
             >
               <Switch.Thumb className="block w-4 h-4 rounded-full bg-text-primary translate-x-0.5 transition-transform data-[state=checked]:translate-x-[22px]" />

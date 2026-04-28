@@ -1,5 +1,5 @@
-use bollard::Docker;
 use bollard::query_parameters::ListVolumesOptions;
+use bollard::Docker;
 use serde::Serialize;
 
 use crate::error::Result;

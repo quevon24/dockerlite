@@ -41,14 +41,10 @@ function JsonNode({ name, value, depth, defaultExpanded = false }: JsonNodeProps
             <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
           )}
           <span className="text-accent ml-1">{name}</span>
-          <span className="text-text-muted ml-1">
-            {`{${entries.length}}`}
-          </span>
+          <span className="text-text-muted ml-1">{`{${entries.length}}`}</span>
         </button>
         {expanded &&
-          entries.map(([k, v]) => (
-            <JsonNode key={k} name={k} value={v} depth={depth + 1} />
-          ))}
+          entries.map(([k, v]) => <JsonNode key={k} name={k} value={v} depth={depth + 1} />)}
       </div>
     );
   }
@@ -86,10 +82,7 @@ function JsonNode({ name, value, depth, defaultExpanded = false }: JsonNodeProps
         : "text-text-primary";
 
   return (
-    <div
-      className="flex items-start px-1"
-      style={{ paddingLeft: depth * 16 }}
-    >
+    <div className="flex items-start px-1" style={{ paddingLeft: depth * 16 }}>
       <span className="text-accent shrink-0">{name}</span>
       <span className="text-text-muted mx-1">:</span>
       <span className={`${colorClass} break-all`}>{strValue}</span>
@@ -150,18 +143,13 @@ export default function InspectTab({ containerId }: InspectTabProps) {
         </button>
       </div>
       <div className="bg-surface border border-border rounded-lg p-3 font-mono text-xs leading-relaxed overflow-auto max-h-[70vh]">
-        {data && typeof data === "object" && !Array.isArray(data)
-          ? Object.entries(data as Record<string, unknown>).map(([k, v]) => (
-              <JsonNode
-                key={k}
-                name={k}
-                value={v}
-                depth={0}
-                defaultExpanded={false}
-              />
-            ))
-          : <pre>{JSON.stringify(data, null, 2)}</pre>
-        }
+        {data && typeof data === "object" && !Array.isArray(data) ? (
+          Object.entries(data as Record<string, unknown>).map(([k, v]) => (
+            <JsonNode key={k} name={k} value={v} depth={0} defaultExpanded={false} />
+          ))
+        ) : (
+          <pre>{JSON.stringify(data, null, 2)}</pre>
+        )}
       </div>
     </div>
   );

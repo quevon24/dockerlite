@@ -114,7 +114,6 @@ export default function ImagesPage() {
   const handleBulkDelete = async () => {
     const ids = Array.from(selected);
     let successCount = 0;
-    let failCount = 0;
 
     const results = await Promise.allSettled(
       ids.map(async (id) => {
@@ -127,7 +126,6 @@ export default function ImagesPage() {
       if (result.status === "fulfilled") {
         successCount++;
       } else {
-        failCount++;
         const img = data.find((i) => i.id === ids[results.indexOf(result)]);
         toast(
           "Failed to remove image",
@@ -138,11 +136,7 @@ export default function ImagesPage() {
     }
 
     if (successCount > 0) {
-      toast(
-        `${successCount} image${successCount > 1 ? "s" : ""} removed`,
-        undefined,
-        "success",
-      );
+      toast(`${successCount} image${successCount > 1 ? "s" : ""} removed`, undefined, "success");
     }
 
     clearSelection();
@@ -150,8 +144,7 @@ export default function ImagesPage() {
   };
 
   const selectedIds = Array.from(selected);
-  const allFilteredSelected =
-    filtered.length > 0 && filtered.every((i) => selected.has(i.id));
+  const allFilteredSelected = filtered.length > 0 && filtered.every((i) => selected.has(i.id));
 
   return (
     <div>
@@ -298,35 +291,29 @@ export default function ImagesPage() {
                   </td>
                   <td className="px-4 py-2">
                     <div className="flex flex-col gap-0.5">
-                      {img.repoTags.length > 0
-                        ? img.repoTags.map((tag) => (
-                            <span
-                              key={tag}
-                              className={`font-mono text-xs ${
-                                tag === "<none>:<none>"
-                                  ? "text-text-muted italic"
-                                  : "text-text-primary"
-                              }`}
-                            >
-                              {formatTag(tag)}
-                            </span>
-                          ))
-                        : (
-                          <span className="text-text-muted italic text-xs">
-                            &lt;none&gt;
+                      {img.repoTags.length > 0 ? (
+                        img.repoTags.map((tag) => (
+                          <span
+                            key={tag}
+                            className={`font-mono text-xs ${
+                              tag === "<none>:<none>"
+                                ? "text-text-muted italic"
+                                : "text-text-primary"
+                            }`}
+                          >
+                            {formatTag(tag)}
                           </span>
-                        )}
+                        ))
+                      ) : (
+                        <span className="text-text-muted italic text-xs">&lt;none&gt;</span>
+                      )}
                     </div>
                   </td>
-                  <td className="px-4 py-2 font-mono text-xs text-text-muted">
-                    {img.shortId}
-                  </td>
+                  <td className="px-4 py-2 font-mono text-xs text-text-muted">{img.shortId}</td>
                   <td className="px-4 py-2 text-xs text-text-secondary">
                     {formatDate(img.created)}
                   </td>
-                  <td className="px-4 py-2 text-xs text-text-secondary">
-                    {formatBytes(img.size)}
-                  </td>
+                  <td className="px-4 py-2 text-xs text-text-secondary">{formatBytes(img.size)}</td>
                   <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() =>
@@ -370,10 +357,7 @@ export default function ImagesPage() {
         onOpenChange={setBulkDeleteOpen}
       />
 
-      <ImageDetailPanel
-        image={detailImage}
-        onClose={() => setDetailImage(null)}
-      />
+      <ImageDetailPanel image={detailImage} onClose={() => setDetailImage(null)} />
     </div>
   );
 }

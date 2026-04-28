@@ -32,13 +32,9 @@ export default function ConfirmDialog({
         <Dialog.Overlay className="fixed inset-0 bg-black/60 z-40" />
         <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface-raised border border-border rounded-lg p-6 w-[420px] shadow-xl z-50">
           <div className="flex items-start gap-3 mb-4">
-            {destructive && (
-              <AlertTriangle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
-            )}
+            {destructive && <AlertTriangle className="w-5 h-5 text-danger shrink-0 mt-0.5" />}
             <div className="flex-1">
-              <Dialog.Title className="text-base font-semibold">
-                {title}
-              </Dialog.Title>
+              <Dialog.Title className="text-base font-semibold">{title}</Dialog.Title>
               <Dialog.Description className="text-sm text-text-secondary mt-2">
                 {description}
               </Dialog.Description>

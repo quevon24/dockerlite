@@ -1,6 +1,6 @@
 use futures_util::StreamExt;
-use tauri::State;
 use tauri::ipc::Channel;
+use tauri::State;
 
 use crate::error::DockerLiteError;
 use crate::state::{DockerState, ExecRegistry, StreamRegistry};
@@ -31,7 +31,10 @@ pub async fn start_exec(
     let exec_id = exec.id;
 
     // Start exec (attached mode)
-    let start_config = bollard::exec::StartExecOptions { detach: false, ..Default::default() };
+    let start_config = bollard::exec::StartExecOptions {
+        detach: false,
+        ..Default::default()
+    };
     let result = client.start_exec(&exec_id, Some(start_config)).await?;
 
     match result {

@@ -1,9 +1,9 @@
-use bollard::Docker;
 use bollard::container::LogOutput;
 use bollard::query_parameters::{
     ListContainersOptionsBuilder, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
     StopContainerOptions,
 };
+use bollard::Docker;
 use futures_util::Stream;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -172,16 +172,18 @@ pub struct StatsSnapshot {
 
 /// Compute a StatsSnapshot from a single Docker stats response.
 /// Returns None if the stats don't contain enough data for computation.
-pub fn compute_stats(
-    stats: &bollard::models::ContainerStatsResponse,
-) -> Option<StatsSnapshot> {
+pub fn compute_stats(stats: &bollard::models::ContainerStatsResponse) -> Option<StatsSnapshot> {
     let cpu = stats.cpu_stats.as_ref()?;
     let precpu = stats.precpu_stats.as_ref()?;
     let cpu_usage = cpu.cpu_usage.as_ref()?;
     let precpu_usage = precpu.cpu_usage.as_ref()?;
 
-    let cpu_delta = cpu_usage.total_usage?.saturating_sub(precpu_usage.total_usage?);
-    let system_delta = cpu.system_cpu_usage?.saturating_sub(precpu.system_cpu_usage?);
+    let cpu_delta = cpu_usage
+        .total_usage?
+        .saturating_sub(precpu_usage.total_usage?);
+    let system_delta = cpu
+        .system_cpu_usage?
+        .saturating_sub(precpu.system_cpu_usage?);
     let num_cpus = cpu.online_cpus.unwrap_or(1) as f64;
 
     let cpu_percent = if system_delta > 0 {

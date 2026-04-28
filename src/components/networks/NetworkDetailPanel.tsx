@@ -7,16 +7,20 @@ interface Props {
   onClose: () => void;
 }
 
-function Badge({ children, variant = "default" }: { children: React.ReactNode; variant?: "default" | "warning" | "success" }) {
+function Badge({
+  children,
+  variant = "default",
+}: {
+  children: React.ReactNode;
+  variant?: "default" | "warning" | "success";
+}) {
   const cls = {
     default: "bg-surface-overlay text-text-secondary border-border",
     warning: "bg-warning/20 text-warning border-warning/30",
     success: "bg-success/20 text-success border-success/30",
   }[variant];
   return (
-    <span className={`px-2 py-0.5 rounded border text-xs font-medium ${cls}`}>
-      {children}
-    </span>
+    <span className={`px-2 py-0.5 rounded border text-xs font-medium ${cls}`}>{children}</span>
   );
 }
 
@@ -24,7 +28,9 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   return (
     <div className="flex items-start gap-4 px-3 py-2">
       <span className="text-xs text-text-muted w-[100px] shrink-0 pt-0.5">{label}</span>
-      <span className={`text-xs text-text-primary break-all ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className={`text-xs text-text-primary break-all ${mono ? "font-mono" : ""}`}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -55,9 +61,7 @@ export default function NetworkDetailPanel({ network, onClose }: Props) {
 
   return (
     <>
-      {open && (
-        <div className="fixed inset-0 z-20 bg-black/30" onClick={onClose} />
-      )}
+      {open && <div className="fixed inset-0 z-20 bg-black/30" onClick={onClose} />}
       <div
         className={`fixed top-0 right-0 bottom-0 w-[520px] bg-surface border-l border-border shadow-2xl flex flex-col z-30 transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
       >
@@ -81,7 +85,9 @@ export default function NetworkDetailPanel({ network, onClose }: Props) {
 
             <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
               <section>
-                <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Details</h3>
+                <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
+                  Details
+                </h3>
                 <div className="bg-surface-raised border border-border rounded-lg divide-y divide-border">
                   <Row label="ID" value={network.id} mono />
                   <Row label="Name" value={network.name} />
@@ -128,12 +134,18 @@ export default function NetworkDetailPanel({ network, onClose }: Props) {
 
               {labels.length > 0 && (
                 <section>
-                  <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Labels</h3>
+                  <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
+                    Labels
+                  </h3>
                   <div className="bg-surface-raised border border-border rounded-lg divide-y divide-border">
                     {labels.map(([k, v]) => (
                       <div key={k} className="px-3 py-2 flex items-start gap-3">
-                        <span className="text-xs font-mono text-text-secondary shrink-0 break-all">{k}</span>
-                        <span className="text-xs font-mono text-text-muted break-all ml-auto text-right">{v}</span>
+                        <span className="text-xs font-mono text-text-secondary shrink-0 break-all">
+                          {k}
+                        </span>
+                        <span className="text-xs font-mono text-text-muted break-all ml-auto text-right">
+                          {v}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -142,12 +154,18 @@ export default function NetworkDetailPanel({ network, onClose }: Props) {
 
               {options.length > 0 && (
                 <section>
-                  <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Options</h3>
+                  <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
+                    Options
+                  </h3>
                   <div className="bg-surface-raised border border-border rounded-lg divide-y divide-border">
                     {options.map(([k, v]) => (
                       <div key={k} className="px-3 py-2 flex items-start gap-3">
-                        <span className="text-xs font-mono text-text-secondary shrink-0 break-all">{k}</span>
-                        <span className="text-xs font-mono text-text-muted break-all ml-auto text-right">{v}</span>
+                        <span className="text-xs font-mono text-text-secondary shrink-0 break-all">
+                          {k}
+                        </span>
+                        <span className="text-xs font-mono text-text-muted break-all ml-auto text-right">
+                          {v}
+                        </span>
                       </div>
                     ))}
                   </div>

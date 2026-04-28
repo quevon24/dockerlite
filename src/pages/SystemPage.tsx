@@ -108,10 +108,7 @@ export default function SystemPage() {
     let totalDeleted = 0;
     let totalReclaimed = 0;
 
-    const runPrune = async (
-      label: string,
-      fn: () => Promise<PruneResult>,
-    ) => {
+    const runPrune = async (label: string, fn: () => Promise<PruneResult>) => {
       try {
         const result = await fn();
         totalDeleted += result.itemsDeleted;
@@ -158,16 +155,17 @@ export default function SystemPage() {
       {diskUsage && (
         <div className="grid grid-cols-5 gap-3 mb-6">
           {[
-            { label: "Containers", size: diskUsage.containersSize, count: diskUsage.containersCount },
+            {
+              label: "Containers",
+              size: diskUsage.containersSize,
+              count: diskUsage.containersCount,
+            },
             { label: "Images", size: diskUsage.imagesSize, count: diskUsage.imagesCount },
             { label: "Volumes", size: diskUsage.volumesSize, count: diskUsage.volumesCount },
             { label: "Build Cache", size: diskUsage.buildCacheSize, count: null },
             { label: "Total", size: diskUsage.totalSize, count: null },
           ].map((item) => (
-            <div
-              key={item.label}
-              className="bg-surface-raised border border-border rounded-lg p-3"
-            >
+            <div key={item.label} className="bg-surface-raised border border-border rounded-lg p-3">
               <div className="text-xs text-text-secondary mb-1">{item.label}</div>
               <div className="text-lg font-semibold">{formatBytes(item.size)}</div>
               {item.count !== null && (
@@ -188,10 +186,7 @@ export default function SystemPage() {
         <h2 className="text-base font-medium mb-4">Select resources to clean</h2>
         <div className="space-y-3">
           {PRUNE_OPTIONS.map((opt) => (
-            <label
-              key={opt.id}
-              className="flex items-start gap-3 cursor-pointer group"
-            >
+            <label key={opt.id} className="flex items-start gap-3 cursor-pointer group">
               <Checkbox.Root
                 checked={selected.has(opt.id)}
                 onCheckedChange={() => toggleOption(opt.id)}

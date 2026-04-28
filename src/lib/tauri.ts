@@ -1,7 +1,15 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
 import type {
-  SystemInfo, DiskUsage, ContainerInfo, ImageInfo, ImageLayer,
-  VolumeInfo, NetworkInfo, PruneResult, LogLine, StatsSnapshot,
+  SystemInfo,
+  DiskUsage,
+  ContainerInfo,
+  ImageInfo,
+  ImageLayer,
+  VolumeInfo,
+  NetworkInfo,
+  PruneResult,
+  LogLine,
+  StatsSnapshot,
 } from "./types";
 
 export async function setMinimizeToTray(enabled: boolean): Promise<void> {

@@ -1,5 +1,5 @@
-use bollard::Docker;
 use bollard::query_parameters::{ListImagesOptionsBuilder, RemoveImageOptionsBuilder};
+use bollard::Docker;
 use serde::Serialize;
 
 use crate::error::Result;
@@ -25,8 +25,8 @@ pub async fn list_all(client: &Docker) -> Result<Vec<ImageInfo>> {
     let result = images
         .into_iter()
         .map(|img| {
-            let dangling = img.repo_tags.is_empty()
-                || img.repo_tags.iter().all(|t| t == "<none>:<none>");
+            let dangling =
+                img.repo_tags.is_empty() || img.repo_tags.iter().all(|t| t == "<none>:<none>");
             let short_id = img
                 .id
                 .strip_prefix("sha256:")

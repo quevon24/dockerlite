@@ -37,11 +37,7 @@ function CopyButton({ text }: { text: string }) {
       className="p-1 rounded hover:bg-surface-overlay text-text-muted hover:text-text-primary transition-colors"
       aria-label="Copy value"
     >
-      {copied ? (
-        <Check className="w-3 h-3 text-success" />
-      ) : (
-        <Copy className="w-3 h-3" />
-      )}
+      {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
     </button>
   );
 }

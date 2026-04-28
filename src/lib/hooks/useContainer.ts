@@ -13,10 +13,7 @@ interface UseContainerResult {
  * Fetch a single container by ID by filtering the full container list.
  * Polls every 3 seconds for status updates.
  */
-export function useContainer(
-  containerId: string,
-  intervalMs: number = 3000,
-): UseContainerResult {
+export function useContainer(containerId: string, intervalMs: number = 3000): UseContainerResult {
   const [data, setData] = useState<ContainerInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

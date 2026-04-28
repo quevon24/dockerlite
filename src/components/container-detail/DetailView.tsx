@@ -32,17 +32,13 @@ export default function DetailView({ containerId }: DetailViewProps) {
   };
 
   if (loading) {
-    return (
-      <div className="text-text-secondary">Loading container...</div>
-    );
+    return <div className="text-text-secondary">Loading container...</div>;
   }
 
   if (error || !data) {
     return (
       <div className="bg-danger/10 border border-danger/30 rounded-lg p-6">
-        <p className="text-danger font-medium">
-          {error ?? "Container not found"}
-        </p>
+        <p className="text-danger font-medium">{error ?? "Container not found"}</p>
         <button
           onClick={() => navigate("/")}
           className="mt-3 text-sm text-accent hover:text-docker-blue transition-colors"
@@ -67,9 +63,7 @@ export default function DetailView({ containerId }: DetailViewProps) {
           <h1 className="text-xl font-semibold truncate">{data.name}</h1>
           <div className="flex items-center gap-3 mt-1">
             <StatusBadge state={data.state} />
-            <span className="text-xs text-text-muted font-mono">
-              {data.id.slice(0, 12)}
-            </span>
+            <span className="text-xs text-text-muted font-mono">{data.id.slice(0, 12)}</span>
             <span className="text-xs text-text-secondary">{data.image}</span>
           </div>
         </div>

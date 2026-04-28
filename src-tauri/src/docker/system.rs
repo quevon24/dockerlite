@@ -1,5 +1,5 @@
-use bollard::Docker;
 use bollard::query_parameters::{PruneBuildOptions, PruneImagesOptions, PruneVolumesOptions};
+use bollard::Docker;
 use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
@@ -183,9 +183,7 @@ pub async fn prune_networks(client: &Docker) -> Result<PruneResult> {
 
 /// Prune build cache.
 pub async fn prune_build_cache(client: &Docker) -> Result<PruneResult> {
-    let resp = client
-        .prune_build(None::<PruneBuildOptions>)
-        .await?;
+    let resp = client.prune_build(None::<PruneBuildOptions>).await?;
     Ok(PruneResult {
         items_deleted: resp.caches_deleted.map(|v| v.len() as u32).unwrap_or(0),
         space_reclaimed: resp.space_reclaimed.unwrap_or(0),

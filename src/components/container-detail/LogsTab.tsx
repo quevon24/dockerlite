@@ -43,8 +43,7 @@ export default function LogsTab({ containerId, resetKey = 0 }: LogsTabProps) {
   const onScroll = () => {
     const el = containerRef.current;
     if (!el) return;
-    const atBottom =
-      el.scrollHeight - el.clientHeight - el.scrollTop < 32;
+    const atBottom = el.scrollHeight - el.clientHeight - el.scrollTop < 32;
     if (autoScroll !== atBottom) setAutoScroll(atBottom);
   };
 
@@ -104,9 +103,7 @@ export default function LogsTab({ containerId, resetKey = 0 }: LogsTabProps) {
             }`}
           >
             {showTimestamps && line.timestamp && (
-              <span className="text-text-muted mr-2">
-                {formatTimestamp(line.timestamp)}
-              </span>
+              <span className="text-text-muted mr-2">{formatTimestamp(line.timestamp)}</span>
             )}
             {stripAnsi(line.text)}
           </div>

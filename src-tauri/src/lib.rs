@@ -6,9 +6,9 @@ mod state;
 use state::{DockerState, ExecRegistry, MinimizeToTrayFlag, StreamRegistry};
 use tauri::{
     image::Image,
-    Manager,
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
+    Manager,
 };
 
 /// Restore or recreate the main window at the default size.
@@ -55,9 +55,8 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&open, &quit])?;
 
             // Tray icon: embedded at compile time, tight box without background
-            let tray_icon =
-                Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
-                    .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
+            let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
+                .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
 
             TrayIconBuilder::new()
                 .icon(tray_icon)

@@ -98,6 +98,7 @@ export default function ImageDetailPanel({ image, onClose }: Props) {
               </div>
               <button
                 onClick={onClose}
+                aria-label="Close"
                 className="p-1.5 rounded hover:bg-surface-overlay text-text-muted hover:text-text-primary transition-colors ml-3 shrink-0"
               >
                 <X className="w-4 h-4" />

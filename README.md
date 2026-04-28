@@ -96,7 +96,7 @@ Two hooks are registered:
 | Hook | Checks |
 |---|---|
 | pre-commit | rustfmt, ESLint, Prettier, TypeScript type check |
-| pre-push | Clippy (Rust linter) |
+| pre-push | Clippy (Rust linter), Vitest (frontend tests) |
 
 ### Run checks manually
 
@@ -130,6 +130,19 @@ npm run format:check
 
 # Run all frontend checks at once
 npm run check
+```
+
+**Frontend tests:**
+
+```bash
+# Run tests once
+npm run test
+
+# Watch mode (re-runs on file changes)
+npm run test:watch
+
+# With coverage report
+npm run test:coverage
 ```
 
 ### Required tools

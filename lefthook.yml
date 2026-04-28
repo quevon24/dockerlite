@@ -17,3 +17,5 @@ pre-push:
   commands:
     clippy:
       run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+    vitest:
+      run: npm run test

@@ -141,7 +141,7 @@ impl ExecRegistry {
             .ok_or_else(|| DockerLiteError::Connection(format!("Exec session {id} not found")))?;
         let result = writer.write_all(data).await;
         self.insert(id.to_string(), writer);
-        result.map_err(|e| DockerLiteError::Io(e))
+        result.map_err(DockerLiteError::Io)
     }
 }
 

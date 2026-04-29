@@ -78,3 +78,32 @@ pub async fn remove(client: &Docker, id: &str) -> Result<()> {
     client.remove_network(id).await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bollard::Docker;
+
+    fn client() -> Docker {
+        Docker::connect_with_unix_defaults().unwrap()
+    }
+
+    #[tokio::test]
+    async fn list_all_returns_ok() {
+        let result = list_all(&client()).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn default_networks_present() {
+        let list = list_all(&client()).await.unwrap();
+        let names: Vec<&str> = list.iter().map(|n| n.name.as_str()).collect();
+        for expected in ["bridge", "host", "none"] {
+            assert!(
+                names.contains(&expected),
+                "expected network '{}' not found",
+                expected
+            );
+        }
+    }
+}

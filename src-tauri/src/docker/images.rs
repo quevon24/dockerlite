@@ -84,3 +84,30 @@ pub async fn get_layers(client: &Docker, id: &str) -> Result<Vec<ImageLayer>> {
         .collect();
     Ok(layers)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bollard::Docker;
+
+    fn client() -> Docker {
+        Docker::connect_with_unix_defaults().unwrap()
+    }
+
+    #[tokio::test]
+    async fn list_all_returns_ok() {
+        let result = list_all(&client()).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn get_layers_for_existing_image() {
+        let client = client();
+        let images = list_all(&client).await.unwrap();
+        // Skip if no images are available locally
+        let Some(img) = images.first() else { return };
+        let result = get_layers(&client, &img.id).await;
+        assert!(result.is_ok());
+        assert!(!result.unwrap().is_empty());
+    }
+}

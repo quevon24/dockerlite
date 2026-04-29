@@ -224,6 +224,70 @@ pub fn compute_stats(stats: &bollard::models::ContainerStatsResponse) -> Option<
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bollard::Docker;
+
+    fn client() -> Docker {
+        Docker::connect_with_unix_defaults().unwrap()
+    }
+
+    #[tokio::test]
+    async fn list_all_returns_ok() {
+        let result = list_all(&client()).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn container_lifecycle() {
+        let client = client();
+        let name = "dockerlite-test-lifecycle";
+
+        // Pre-cleanup from any previous failed run
+        let _ = remove(&client, name, true).await;
+
+        let config = bollard::models::ContainerCreateBody {
+            image: Some("alpine:latest".to_string()),
+            cmd: Some(vec!["sleep".to_string(), "30".to_string()]),
+            ..Default::default()
+        };
+        let options = bollard::query_parameters::CreateContainerOptions {
+            name: Some(name.to_string()),
+            ..Default::default()
+        };
+
+        let created = client.create_container(Some(options), config).await;
+        if created.is_err() {
+            // Alpine not pulled locally — skip rather than fail
+            return;
+        }
+        let id = created.unwrap().id;
+
+        // Appears in list
+        let list = list_all(&client).await.unwrap();
+        assert!(
+            list.iter().any(|c| c.id == id),
+            "created container not found in list"
+        );
+
+        // Start
+        start(&client, &id).await.unwrap();
+        let list = list_all(&client).await.unwrap();
+        assert_eq!(list.iter().find(|c| c.id == id).unwrap().state, "running");
+
+        // Stop
+        stop(&client, &id).await.unwrap();
+
+        // Cleanup
+        remove(&client, &id, false).await.unwrap();
+
+        // No longer in list
+        let list = list_all(&client).await.unwrap();
+        assert!(!list.iter().any(|c| c.id == id));
+    }
+}
+
 /// Build a stream of follow-mode container logs with timestamps enabled.
 /// Each chunk is split on newlines and emitted as a LogLine.
 pub fn logs_stream(

@@ -1,5 +1,7 @@
 # DockerLite
 
+[![CI](https://github.com/quevon24/dockerlite/actions/workflows/ci.yml/badge.svg)](https://github.com/quevon24/dockerlite/actions/workflows/ci.yml)
+
 A lightweight, native Docker Desktop replacement for Linux built with [Tauri](https://tauri.app). Connects directly to the local Docker Engine via the Unix socket for high-performance container management.
 
 ## Features
@@ -111,6 +113,9 @@ cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
 # Lint (fails on any warning)
 cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+# Run integration tests (requires Docker running)
+cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 **Frontend:**

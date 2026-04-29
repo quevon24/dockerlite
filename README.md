@@ -194,6 +194,37 @@ Output binaries are in `src-tauri/target/release/bundle/`:
 
 The raw binary is also available at `src-tauri/target/release/dockerlite` and can be run directly.
 
+## Releasing
+
+Releases are built automatically by GitHub Actions when a version tag is pushed. The workflow
+produces AppImage, .deb, and .rpm artifacts and creates a draft GitHub Release for review.
+
+### Steps to cut a release
+
+1. Bump the version in **both** files (they must match):
+   - `src-tauri/tauri.conf.json` — `"version"` field
+   - `src-tauri/Cargo.toml` — `version` field
+
+2. Commit the version bump:
+   ```bash
+   git add src-tauri/tauri.conf.json src-tauri/Cargo.toml
+   git commit -m "chore(release): bump version to X.Y.Z"
+   ```
+
+3. Merge to `main` via PR as normal.
+
+4. Tag the merge commit and push the tag:
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+5. GitHub Actions builds the binaries and creates a **draft release** automatically. Open the
+   [Releases page](https://github.com/quevon24/dockerlite/releases), add release notes, and
+   publish when ready.
+
+No tokens or secrets need to be configured — `GITHUB_TOKEN` is provided automatically.
+
 ## Architecture
 
 ```

@@ -1,16 +1,18 @@
 use futures_util::StreamExt;
 use tauri::ipc::Channel;
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::error::DockerLiteError;
 use crate::state::{DockerState, ExecRegistry, StreamRegistry};
 
 /// Create and start an interactive exec session (/bin/sh) inside a container.
-/// Output bytes are sent through the Tauri Channel. Returns the exec ID so the
-/// frontend can address write_exec_input and resize_exec_terminal to it.
+/// Output bytes are sent through the Tauri Channel; an empty payload signals
+/// that the session ended. Returns the exec ID so the frontend can address
+/// write_exec_input and resize_exec_terminal to it.
 #[tauri::command]
 pub async fn start_exec(
     container_id: String,
+    app: tauri::AppHandle,
     docker: State<'_, DockerState>,
     execs: State<'_, ExecRegistry>,
     streams: State<'_, StreamRegistry>,
@@ -44,22 +46,30 @@ pub async fn start_exec(
 
             // Spawn output reader
             let eid = exec_id.clone();
-            let handle = tokio::spawn(async move {
-                futures_util::pin_mut!(output);
-                while let Some(chunk) = output.next().await {
-                    match chunk {
-                        Ok(log_output) => {
-                            let bytes = log_output.into_bytes().to_vec();
-                            if !bytes.is_empty() && on_output.send(bytes).is_err() {
-                                break;
+            let key = format!("exec:{eid}");
+            let task_key = key.clone();
+            streams.register_with(key, move || {
+                tokio::spawn(async move {
+                    futures_util::pin_mut!(output);
+                    while let Some(chunk) = output.next().await {
+                        match chunk {
+                            Ok(log_output) => {
+                                let bytes = log_output.into_bytes().to_vec();
+                                if !bytes.is_empty() && on_output.send(bytes).is_err() {
+                                    break;
+                                }
                             }
+                            Err(_) => break,
                         }
-                        Err(_) => break,
                     }
-                }
+                    // The shell exited or the stream broke: release the stdin
+                    // handle and registry entry, and tell the frontend the
+                    // session is over (empty payload is the EOF sentinel).
+                    let _ = on_output.send(Vec::new());
+                    app.state::<ExecRegistry>().remove(&eid);
+                    app.state::<StreamRegistry>().remove(&task_key);
+                })
             });
-
-            streams.register(format!("exec:{eid}"), handle);
         }
         bollard::exec::StartExecResults::Detached => {
             return Err(DockerLiteError::Connection(

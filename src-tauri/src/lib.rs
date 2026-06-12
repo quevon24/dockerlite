@@ -42,7 +42,6 @@ pub fn run() {
     let docker_state = DockerState::new("/var/run/docker.sock");
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(docker_state)
         .manage(StreamRegistry::new())
@@ -54,12 +53,7 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &quit])?;
 
-            // Tray icon: embedded at compile time, tight box without background
-            let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
-                .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
-
-            TrayIconBuilder::new()
-                .icon(tray_icon)
+            let mut tray = TrayIconBuilder::new()
                 .tooltip("DockerLite")
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -75,8 +69,18 @@ pub fn run() {
                     if let tauri::tray::TrayIconEvent::Click { .. } = event {
                         restore_window(tray.app_handle());
                     }
-                })
-                .build(app)?;
+                });
+
+            // Tray icon: embedded at compile time, tight box without
+            // background. Fall back to the window icon, and build without
+            // an icon rather than abort startup if both are unavailable.
+            if let Some(icon) = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
+                .ok()
+                .or_else(|| app.default_window_icon().cloned())
+            {
+                tray = tray.icon(icon);
+            }
+            tray.build(app)?;
 
             // No close_requested handler needed. The window simply closes
             // and RunEvent::ExitRequested keeps the app alive when the
@@ -103,9 +107,8 @@ pub fn run() {
             commands::containers::unpause_container,
             commands::containers::remove_container,
             commands::containers::stream_container_logs,
-            commands::containers::stop_log_stream,
             commands::containers::stream_container_stats,
-            commands::containers::stop_stats_stream,
+            commands::containers::stop_stream,
             commands::images::list_images,
             commands::images::remove_image,
             commands::images::get_image_layers,
@@ -121,13 +124,28 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            // When minimize-to-tray is enabled, keep the app alive even
-            // after the last window closes. The tray icon stays active.
-            if let tauri::RunEvent::ExitRequested { api, .. } = &event {
-                let flag = app_handle.state::<MinimizeToTrayFlag>();
-                if flag.get() {
-                    api.prevent_exit();
+            match &event {
+                // When minimize-to-tray is enabled, keep the app alive even
+                // after the last window closes. The tray icon stays active.
+                tauri::RunEvent::ExitRequested { api, .. } => {
+                    let flag = app_handle.state::<MinimizeToTrayFlag>();
+                    if flag.get() {
+                        api.prevent_exit();
+                    }
                 }
+                // The webview is gone, so nothing can consume or stop the
+                // active log/stats/exec streams; cancel them all so they
+                // don't hold daemon connections while the app sits in the
+                // tray.
+                tauri::RunEvent::WindowEvent {
+                    label,
+                    event: tauri::WindowEvent::Destroyed,
+                    ..
+                } if label == "main" => {
+                    app_handle.state::<StreamRegistry>().cancel_all();
+                    app_handle.state::<ExecRegistry>().clear();
+                }
+                _ => {}
             }
         });
 }

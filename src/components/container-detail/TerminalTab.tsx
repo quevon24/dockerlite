@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Terminal } from "xterm";
+import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import "xterm/css/xterm.css";
+import "@xterm/xterm/css/xterm.css";
 import { startExec, writeExecInput, resizeExecTerminal } from "../../lib/tauri";
 
 interface TerminalTabProps {
@@ -18,6 +18,7 @@ export default function TerminalTab({ containerId }: TerminalTabProps) {
     if (!el) return;
 
     let cancelled = false;
+    let exited = false;
     let execStop: (() => Promise<void>) | null = null;
     let execId: string | null = null;
 
@@ -47,20 +48,32 @@ export default function TerminalTab({ containerId }: TerminalTabProps) {
     term.open(el);
 
     // Small delay so the container has its final size before fitting
-    requestAnimationFrame(() => {
+    const fitRaf = requestAnimationFrame(() => {
       fitAddon.fit();
     });
 
     // Start the exec session
-    startExec(containerId, (data) => {
-      if (cancelled) return;
-      term.write(new Uint8Array(data));
-    })
+    startExec(
+      containerId,
+      (data) => {
+        if (cancelled) return;
+        term.write(new Uint8Array(data));
+      },
+      () => {
+        // Shell exited (e.g. user typed `exit`); backend already cleaned up.
+        if (cancelled) return;
+        exited = true;
+        execId = null;
+        execStop = null;
+        term.write("\r\n\x1b[2m[session ended]\x1b[0m\r\n");
+      },
+    )
       .then(({ execId: eid, stop }) => {
         if (cancelled) {
           stop().catch(() => {});
           return;
         }
+        if (exited) return;
         execId = eid;
         execStop = stop;
 
@@ -91,6 +104,7 @@ export default function TerminalTab({ containerId }: TerminalTabProps) {
 
     return () => {
       cancelled = true;
+      cancelAnimationFrame(fitRaf);
       observer.disconnect();
       dataDisposable.dispose();
       resizeDisposable.dispose();

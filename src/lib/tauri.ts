@@ -109,16 +109,24 @@ export async function removeContainer(id: string, force: boolean): Promise<void>
 }
 
 /**
- * Start streaming container logs. The onBatch callback fires with each batch
- * of log lines emitted by the backend. Returns a teardown promise that stops
- * the stream when called.
+ * Start an interactive exec session (/bin/sh) in a container. Output bytes
+ * arrive via onOutput; onExit fires once when the backend signals that the
+ * session ended (empty payload sentinel), after which the backend has already
+ * cleaned up and stop() is a no-op.
  */
 export async function startExec(
   containerId: string,
   onOutput: (data: number[]) => void,
+  onExit?: () => void,
 ): Promise<{ execId: string; stop: () => Promise<void> }> {
   const channel = new Channel<number[]>();
-  channel.onmessage = onOutput;
+  channel.onmessage = (data) => {
+    if (data.length === 0) {
+      onExit?.();
+    } else {
+      onOutput(data);
+    }
+  };
   const execId = await invoke<string>("start_exec", {
     containerId,
     onOutput: channel,
@@ -141,17 +149,27 @@ export async function resizeExecTerminal(
   return invoke("resize_exec_terminal", { execId, cols, rows });
 }
 
+/**
+ * Start streaming container stats. The backend returns a unique stream id,
+ * so the returned stop function only ever cancels this stream, never a
+ * newer one for the same container.
+ */
 export function streamContainerStats(
   id: string,
   onSnapshot: (snapshot: StatsSnapshot) => void,
 ): Promise<() => Promise<void>> {
   const channel = new Channel<StatsSnapshot>();
   channel.onmessage = onSnapshot;
-  return invoke<void>("stream_container_stats", { id, onEvent: channel }).then(
-    () => () => invoke<void>("stop_stats_stream", { id }),
+  return invoke<string>("stream_container_stats", { id, onEvent: channel }).then(
+    (streamId) => () => invoke<void>("stop_stream", { streamId }),
   );
 }
 
+/**
+ * Start streaming container logs. The onBatch callback fires with each batch
+ * of log lines emitted by the backend. The backend returns a unique stream
+ * id, so the returned stop function only ever cancels this stream.
+ */
 export function streamContainerLogs(
   id: string,
   tail: number,
@@ -159,7 +177,7 @@ export function streamContainerLogs(
 ): Promise<() => Promise<void>> {
   const channel = new Channel<LogLine[]>();
   channel.onmessage = onBatch;
-  return invoke<void>("stream_container_logs", { id, tail, onEvent: channel }).then(
-    () => () => invoke<void>("stop_log_stream", { id }),
+  return invoke<string>("stream_container_logs", { id, tail, onEvent: channel }).then(
+    (streamId) => () => invoke<void>("stop_stream", { streamId }),
   );
 }

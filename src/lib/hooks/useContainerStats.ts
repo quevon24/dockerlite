@@ -34,8 +34,9 @@ export function useContainerStats(containerId: string): UseContainerStatsResult 
     })
       .then((stop) => {
         if (cancelled) {
-          // Same pattern as logs: don't stop in cancelled path
-          // to avoid killing a StrictMode replacement stream.
+          // The stream id is unique per call, so stopping here cannot
+          // affect a replacement stream (e.g. under StrictMode).
+          stop().catch(() => {});
         } else {
           teardown = stop;
         }

@@ -8,15 +8,18 @@ interface UseContainerStatsResult {
   history: StatsSnapshot[];
   latest: StatsSnapshot | null;
   error: string | null;
+  ended: boolean;
 }
 
 /**
  * Subscribe to a container's stats stream. Maintains a sliding window of the
- * last MAX_POINTS data points for charting.
+ * last MAX_POINTS data points for charting. `ended` flips when the backend
+ * reports the container is gone.
  */
 export function useContainerStats(containerId: string): UseContainerStatsResult {
   const [history, setHistory] = useState<StatsSnapshot[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [ended, setEnded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,13 +27,21 @@ export function useContainerStats(containerId: string): UseContainerStatsResult 
 
     setHistory([]);
     setError(null);
+    setEnded(false);
 
-    streamContainerStats(containerId, (snapshot) => {
+    streamContainerStats(containerId, (event) => {
       if (cancelled) return;
-      setHistory((prev) => {
-        const next = [...prev, snapshot];
-        return next.length > MAX_POINTS ? next.slice(-MAX_POINTS) : next;
-      });
+      if (event.type === "snapshot") {
+        setError(null);
+        setHistory((prev) => {
+          const next = [...prev, event.snapshot];
+          return next.length > MAX_POINTS ? next.slice(-MAX_POINTS) : next;
+        });
+      } else if (event.type === "error") {
+        setError(event.message);
+      } else {
+        setEnded(true);
+      }
     })
       .then((stop) => {
         if (cancelled) {
@@ -55,5 +66,6 @@ export function useContainerStats(containerId: string): UseContainerStatsResult 
     history,
     latest: history.length > 0 ? history[history.length - 1] : null,
     error,
+    ended,
   };
 }

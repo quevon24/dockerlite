@@ -110,21 +110,23 @@ export async function removeContainer(id: string, force: boolean): Promise<void>
 
 /**
  * Start an interactive exec session (/bin/sh) in a container. Output bytes
- * arrive via onOutput; onExit fires once when the backend signals that the
- * session ended (empty payload sentinel), after which the backend has already
- * cleaned up and stop() is a no-op.
+ * arrive via onOutput (sent as raw bytes by the backend, so they reach JS as
+ * an ArrayBuffer without JSON serialization); onExit fires once when the
+ * backend signals that the session ended (empty payload sentinel), after
+ * which the backend has already cleaned up and stop() is a no-op.
  */
 export async function startExec(
   containerId: string,
-  onOutput: (data: number[]) => void,
+  onOutput: (data: Uint8Array) => void,
   onExit?: () => void,
 ): Promise<{ execId: string; stop: () => Promise<void> }> {
-  const channel = new Channel<number[]>();
+  const channel = new Channel<ArrayBuffer | number[]>();
   channel.onmessage = (data) => {
-    if (data.length === 0) {
+    const bytes = new Uint8Array(data instanceof ArrayBuffer ? data : data);
+    if (bytes.length === 0) {
       onExit?.();
     } else {
-      onOutput(data);
+      onOutput(bytes);
     }
   };
   const execId = await invoke<string>("start_exec", {
@@ -149,6 +151,18 @@ export async function resizeExecTerminal(
   return invoke("resize_exec_terminal", { execId, cols, rows });
 }
 
+/** Tagged events emitted by the backend log stream. */
+export type LogStreamEvent =
+  | { type: "lines"; lines: LogLine[] }
+  | { type: "error"; message: string }
+  | { type: "ended" };
+
+/** Tagged events emitted by the backend stats stream. */
+export type StatsStreamEvent =
+  | { type: "snapshot"; snapshot: StatsSnapshot }
+  | { type: "error"; message: string }
+  | { type: "ended" };
+
 /**
  * Start streaming container stats. The backend returns a unique stream id,
  * so the returned stop function only ever cancels this stream, never a
@@ -156,27 +170,26 @@ export async function resizeExecTerminal(
  */
 export function streamContainerStats(
   id: string,
-  onSnapshot: (snapshot: StatsSnapshot) => void,
+  onEvent: (event: StatsStreamEvent) => void,
 ): Promise<() => Promise<void>> {
-  const channel = new Channel<StatsSnapshot>();
-  channel.onmessage = onSnapshot;
+  const channel = new Channel<StatsStreamEvent>();
+  channel.onmessage = onEvent;
   return invoke<string>("stream_container_stats", { id, onEvent: channel }).then(
     (streamId) => () => invoke<void>("stop_stream", { streamId }),
   );
 }
 
 /**
- * Start streaming container logs. The onBatch callback fires with each batch
- * of log lines emitted by the backend. The backend returns a unique stream
- * id, so the returned stop function only ever cancels this stream.
+ * Start streaming container logs. The backend returns a unique stream id,
+ * so the returned stop function only ever cancels this stream.
  */
 export function streamContainerLogs(
   id: string,
   tail: number,
-  onBatch: (lines: LogLine[]) => void,
+  onEvent: (event: LogStreamEvent) => void,
 ): Promise<() => Promise<void>> {
-  const channel = new Channel<LogLine[]>();
-  channel.onmessage = onBatch;
+  const channel = new Channel<LogStreamEvent>();
+  channel.onmessage = onEvent;
   return invoke<string>("stream_container_logs", { id, tail, onEvent: channel }).then(
     (streamId) => () => invoke<void>("stop_stream", { streamId }),
   );

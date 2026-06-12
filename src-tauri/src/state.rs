@@ -1,6 +1,7 @@
 use bollard::Docker;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError, RwLock};
+use std::time::Duration;
 use tokio::task::JoinHandle;
 
 use std::pin::Pin;
@@ -14,66 +15,102 @@ use crate::error::{validate_socket, DockerLiteError};
 // so a poisoned lock is recovered with PoisonError::into_inner instead of
 // permanently failing every Docker command after an unrelated panic.
 
-/// Holds the Docker client and connection metadata.
-/// Uses std::sync::RwLock so the lock is held only briefly (to clone the client).
+/// HTTP timeout for bollard clients, in seconds. Applies up to response
+/// headers, so it does not limit long-lived log/stats/exec streams.
+const DOCKER_TIMEOUT_SECS: u64 = 120;
+
+/// How long a single exec stdin write may take before the session is
+/// considered wedged.
+const EXEC_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+
+struct Connection {
+    client: Option<Docker>,
+    socket_path: String,
+}
+
+/// Holds the Docker client and connection metadata. Client and path live
+/// under a single lock so they can only ever be swapped together.
 pub struct DockerState {
-    client: RwLock<Option<Docker>>,
-    socket_path: RwLock<String>,
+    conn: RwLock<Connection>,
 }
 
 impl DockerState {
     /// Create a new DockerState, attempting to connect to the given socket.
-    /// If connection fails, the app still starts (client will be None).
+    /// If the socket is invalid the app still starts (client will be None
+    /// and `client()` reports the specific problem).
     pub fn new(socket_path: &str) -> Self {
-        let client = Self::try_connect(socket_path);
         Self {
-            client: RwLock::new(client),
-            socket_path: RwLock::new(socket_path.to_string()),
+            conn: RwLock::new(Connection {
+                client: Self::try_connect(socket_path),
+                socket_path: socket_path.to_string(),
+            }),
         }
     }
 
+    /// Build a client only when the socket passes validation: bollard
+    /// connects lazily, so an unconditional connect would "succeed" against
+    /// a missing socket and surface raw transport errors later instead of
+    /// the actionable SocketNotFound/SocketPermission messages.
     fn try_connect(socket_path: &str) -> Option<Docker> {
-        Docker::connect_with_socket(socket_path, 120, bollard::API_DEFAULT_VERSION).ok()
+        validate_socket(socket_path).ok()?;
+        Docker::connect_with_socket(
+            socket_path,
+            DOCKER_TIMEOUT_SECS,
+            bollard::API_DEFAULT_VERSION,
+        )
+        .ok()
     }
 
-    /// Get a clone of the Docker client, or an error if not connected.
+    /// Get a clone of the Docker client. When not connected, retry the
+    /// connection (Docker may have started since app launch); if the socket
+    /// is still invalid, return the specific validation error.
     pub fn client(&self) -> crate::error::Result<Docker> {
-        let guard = self.client.read().unwrap_or_else(PoisonError::into_inner);
-        guard.clone().ok_or_else(|| {
-            let path = self
-                .socket_path
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .clone();
-            DockerLiteError::Connection(format!("Not connected to Docker at {path}"))
-        })
+        let path = {
+            let conn = self.conn.read().unwrap_or_else(PoisonError::into_inner);
+            match &conn.client {
+                Some(client) => return Ok(client.clone()),
+                None => conn.socket_path.clone(),
+            }
+        };
+
+        validate_socket(&path)?;
+        let client =
+            Docker::connect_with_socket(&path, DOCKER_TIMEOUT_SECS, bollard::API_DEFAULT_VERSION)
+                .map_err(|e| DockerLiteError::Connection(e.to_string()))?;
+        let mut conn = self.conn.write().unwrap_or_else(PoisonError::into_inner);
+        conn.client = Some(client.clone());
+        Ok(client)
     }
 
     /// Get the current socket path.
     pub fn socket_path(&self) -> String {
-        self.socket_path
+        self.conn
             .read()
             .unwrap_or_else(PoisonError::into_inner)
+            .socket_path
             .clone()
     }
 
     /// Reconnect to a different Docker socket. Pings the daemon before
     /// committing the swap: bollard connects lazily, so without the ping
     /// any existing socket path would "succeed" and every later command
-    /// would fail instead.
+    /// would fail instead. Client and path are swapped under one write
+    /// guard so concurrent reconnects cannot leave them crossed.
     pub async fn reconnect(&self, new_path: &str) -> crate::error::Result<()> {
         validate_socket(new_path)?;
-        let new_client = Docker::connect_with_socket(new_path, 120, bollard::API_DEFAULT_VERSION)
-            .map_err(|e| DockerLiteError::Connection(e.to_string()))?;
+        let new_client = Docker::connect_with_socket(
+            new_path,
+            DOCKER_TIMEOUT_SECS,
+            bollard::API_DEFAULT_VERSION,
+        )
+        .map_err(|e| DockerLiteError::Connection(e.to_string()))?;
         new_client
             .ping()
             .await
             .map_err(|e| DockerLiteError::Connection(format!("Docker did not respond: {e}")))?;
-        *self.client.write().unwrap_or_else(PoisonError::into_inner) = Some(new_client);
-        *self
-            .socket_path
-            .write()
-            .unwrap_or_else(PoisonError::into_inner) = new_path.to_string();
+        let mut conn = self.conn.write().unwrap_or_else(PoisonError::into_inner);
+        conn.client = Some(new_client);
+        conn.socket_path = new_path.to_string();
         Ok(())
     }
 }
@@ -84,6 +121,7 @@ impl DockerState {
 pub struct StreamRegistry {
     tasks: Mutex<HashMap<String, JoinHandle<()>>>,
     next_id: AtomicU64,
+    closed: AtomicBool,
 }
 
 impl StreamRegistry {
@@ -91,6 +129,7 @@ impl StreamRegistry {
         Self {
             tasks: Mutex::new(HashMap::new()),
             next_id: AtomicU64::new(0),
+            closed: AtomicBool::new(false),
         }
     }
 
@@ -103,13 +142,19 @@ impl StreamRegistry {
     /// Spawn and register a task under the given key. The map lock is held
     /// across the spawn so the task's own `remove` on completion cannot run
     /// before the handle is inserted (a stream that ends instantly would
-    /// otherwise leave a finished handle behind forever).
+    /// otherwise leave a finished handle behind forever). If the registry
+    /// was closed (window destroyed while the command was mid-flight), the
+    /// task is aborted immediately instead of tracked.
     pub fn register_with<F>(&self, key: String, spawn: F)
     where
         F: FnOnce() -> JoinHandle<()>,
     {
         let mut tasks = self.tasks.lock().unwrap_or_else(PoisonError::into_inner);
         let handle = spawn();
+        if self.closed.load(Ordering::Relaxed) {
+            handle.abort();
+            return;
+        }
         if let Some(old) = tasks.insert(key, handle) {
             old.abort();
         }
@@ -136,14 +181,20 @@ impl StreamRegistry {
         }
     }
 
-    /// Cancel and remove every tracked task. Called when the main window is
-    /// destroyed so streams don't keep daemon connections open while the app
-    /// sits in the tray.
+    /// Cancel every tracked task and refuse new registrations until
+    /// `reopen`. Called when the main window is destroyed so streams don't
+    /// keep daemon connections open while the app sits in the tray.
     pub fn cancel_all(&self) {
+        self.closed.store(true, Ordering::Relaxed);
         let mut tasks = self.tasks.lock().unwrap_or_else(PoisonError::into_inner);
         for (_, handle) in tasks.drain() {
             handle.abort();
         }
+    }
+
+    /// Accept registrations again. Called when the main window is recreated.
+    pub fn reopen(&self) {
+        self.closed.store(false, Ordering::Relaxed);
     }
 }
 
@@ -159,20 +210,25 @@ type ExecWriter = Arc<tokio::sync::Mutex<Pin<Box<dyn AsyncWrite + Send>>>>;
 /// `write_exec_input` command can push keystrokes into the container.
 pub struct ExecRegistry {
     inputs: Mutex<HashMap<String, ExecWriter>>,
+    closed: AtomicBool,
 }
 
 impl ExecRegistry {
     pub fn new() -> Self {
         Self {
             inputs: Mutex::new(HashMap::new()),
+            closed: AtomicBool::new(false),
         }
     }
 
     pub fn insert(&self, id: String, writer: Pin<Box<dyn AsyncWrite + Send>>) {
-        self.inputs
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .insert(id, Arc::new(tokio::sync::Mutex::new(writer)));
+        let mut inputs = self.inputs.lock().unwrap_or_else(PoisonError::into_inner);
+        // Window destroyed while start_exec was mid-flight: drop the handle
+        // instead of tracking a session nobody can use.
+        if self.closed.load(Ordering::Relaxed) {
+            return;
+        }
+        inputs.insert(id, Arc::new(tokio::sync::Mutex::new(writer)));
     }
 
     pub fn remove(&self, id: &str) {
@@ -182,18 +238,26 @@ impl ExecRegistry {
             .remove(id);
     }
 
-    /// Drop every stored stdin handle. Called when the main window is
-    /// destroyed so abandoned sessions don't pin daemon connections.
+    /// Drop every stored stdin handle and refuse new ones until `reopen`.
+    /// Called when the main window is destroyed so abandoned sessions don't
+    /// pin daemon connections.
     pub fn clear(&self) {
+        self.closed.store(true, Ordering::Relaxed);
         self.inputs
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clear();
     }
 
+    /// Accept new sessions again. Called when the main window is recreated.
+    pub fn reopen(&self) {
+        self.closed.store(false, Ordering::Relaxed);
+    }
+
     /// Write bytes to the exec session's stdin. The handle stays in the map;
     /// concurrent writes queue on the per-session async mutex, and removal is
-    /// final (an in-flight write cannot resurrect a stopped session).
+    /// final (an in-flight write cannot resurrect a stopped session). The
+    /// write is bounded so a wedged session cannot queue keystrokes forever.
     pub async fn write(&self, id: &str, data: &[u8]) -> crate::error::Result<()> {
         use tokio::io::AsyncWriteExt;
 
@@ -203,7 +267,15 @@ impl ExecRegistry {
         }
         .ok_or_else(|| DockerLiteError::Connection(format!("Exec session {id} not found")))?;
         let mut writer = writer.lock().await;
-        writer.write_all(data).await.map_err(DockerLiteError::Io)
+        tokio::time::timeout(EXEC_WRITE_TIMEOUT, async {
+            writer.write_all(data).await?;
+            writer.flush().await
+        })
+        .await
+        .map_err(|_| {
+            DockerLiteError::Connection(format!("Exec session {id} is not accepting input"))
+        })?
+        .map_err(DockerLiteError::Io)
     }
 }
 
@@ -213,8 +285,8 @@ impl Default for ExecRegistry {
     }
 }
 
-/// Global flag checked by the close_requested handler to decide
-/// whether to hide the window or quit the app.
+/// Global flag checked by the `RunEvent::ExitRequested` handler to decide
+/// whether to keep the app alive in the tray after the last window closes.
 pub struct MinimizeToTrayFlag(AtomicBool);
 
 impl MinimizeToTrayFlag {
@@ -227,7 +299,7 @@ impl MinimizeToTrayFlag {
     }
 
     pub fn set(&self, value: bool) {
-        self.0.store(value, Ordering::Relaxed);
+        self.0.store(value, Ordering::Relaxed)
     }
 }
 

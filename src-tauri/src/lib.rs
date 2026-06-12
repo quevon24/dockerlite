@@ -11,6 +11,11 @@ use tauri::{
     Manager,
 };
 
+// Default window geometry. Keep in sync with the main window entry in
+// tauri.conf.json, which controls the size at first launch.
+const WINDOW_SIZE: (f64, f64) = (1280.0, 800.0);
+const WINDOW_MIN_SIZE: (f64, f64) = (900.0, 600.0);
+
 /// Restore or recreate the main window at the default size.
 /// On Wayland, compositors ignore app-requested positions and their
 /// CSD handling makes geometry save/restore unreliable, so we always
@@ -29,12 +34,17 @@ fn restore_window(handle: &tauri::AppHandle) {
         tauri::WebviewUrl::App(Default::default()),
     )
     .title("DockerLite")
-    .inner_size(1280.0, 800.0)
-    .min_inner_size(900.0, 600.0)
+    .inner_size(WINDOW_SIZE.0, WINDOW_SIZE.1)
+    .min_inner_size(WINDOW_MIN_SIZE.0, WINDOW_MIN_SIZE.1)
     .resizable(true)
     .decorations(true);
 
-    let _ = builder.build();
+    if builder.build().is_ok() {
+        // The destroy handler closed the registries; accept streams again
+        // for the fresh webview.
+        handle.state::<StreamRegistry>().reopen();
+        handle.state::<ExecRegistry>().reopen();
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -48,6 +58,14 @@ pub fn run() {
         .manage(ExecRegistry::new())
         .manage(MinimizeToTrayFlag::new())
         .setup(|app| {
+            // Create the settings store Rust-side. The webview is only
+            // granted store:allow-get-store (a handle to an existing store),
+            // not allow-load, so it cannot create stores at arbitrary paths.
+            {
+                use tauri_plugin_store::StoreExt;
+                app.store("settings.json")?;
+            }
+
             // Build tray menu
             let open = MenuItem::with_id(app, "open", "Open DockerLite", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;

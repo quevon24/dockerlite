@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Network, Trash2, RefreshCw } from "lucide-react";
 import { useNetworks } from "../lib/hooks/useNetworks";
-import type { NetworkInfo } from "../lib/types";
+import { useSettings } from "../lib/SettingsContext";
 import { removeNetwork } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -10,14 +10,21 @@ import NetworkDetailPanel from "../components/networks/NetworkDetailPanel";
 const BUILTIN_NETWORKS = ["bridge", "host", "none"];
 
 export default function NetworksPage() {
-  const { data: rawData, error, loading, refresh } = useNetworks();
+  const { settings } = useSettings();
+  const { data: rawData, error, loading, refresh } = useNetworks(settings.refreshIntervalNetworks);
   const data = [...rawData].sort((a, b) => a.name.localeCompare(b.name));
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     name: string;
   } | null>(null);
-  const [detailNetwork, setDetailNetwork] = useState<NetworkInfo | null>(null);
+  const [detailNetworkId, setDetailNetworkId] = useState<string | null>(null);
+
+  // Derive the panel's network from live data so the connected-containers
+  // list refreshes with the poll and the panel closes if the network is
+  // removed elsewhere.
+  const detailNetwork = data.find((n) => n.id === detailNetworkId) ?? null;
+  const closeDetail = useCallback(() => setDetailNetworkId(null), []);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -73,9 +80,9 @@ export default function NetworksPage() {
             return (
               <div
                 key={net.id}
-                onClick={() => setDetailNetwork(net)}
+                onClick={() => setDetailNetworkId(net.id)}
                 className={`bg-surface-raised border rounded-lg p-4 cursor-pointer transition-colors ${
-                  detailNetwork?.id === net.id
+                  detailNetworkId === net.id
                     ? "border-docker-blue/50 bg-surface-overlay/40"
                     : "border-border hover:border-border hover:bg-surface-overlay/20"
                 }`}
@@ -148,7 +155,7 @@ export default function NetworksPage() {
         }}
       />
 
-      <NetworkDetailPanel network={detailNetwork} onClose={() => setDetailNetwork(null)} />
+      <NetworkDetailPanel network={detailNetwork} onClose={closeDetail} />
     </div>
   );
 }

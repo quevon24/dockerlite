@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import { RotateCw, CheckCircle2 } from "lucide-react";
 import { useSettings } from "../lib/SettingsContext";
@@ -10,6 +10,12 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [socketPath, setSocketPath] = useState(settings.socketPath);
   const [testing, setTesting] = useState(false);
+
+  // Settings load asynchronously; re-seed the input when the persisted
+  // value arrives (otherwise the page shows the default path on app start).
+  useEffect(() => {
+    setSocketPath(settings.socketPath);
+  }, [settings.socketPath]);
 
   const testConnection = async () => {
     setTesting(true);

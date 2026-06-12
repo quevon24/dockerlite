@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Terminal } from "xterm";
+import { RotateCw } from "lucide-react";
+import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import "xterm/css/xterm.css";
+import "@xterm/xterm/css/xterm.css";
 import { startExec, writeExecInput, resizeExecTerminal } from "../../lib/tauri";
 
 interface TerminalTabProps {
@@ -12,12 +13,24 @@ export default function TerminalTab({ containerId }: TerminalTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ended, setEnded] = useState(false);
+  // Bumping the key tears down the terminal and starts a fresh exec session;
+  // needed because the shell can exit on its own (user types `exit`) and the
+  // tab stays mounted across tab switches.
+  const [sessionKey, setSessionKey] = useState(0);
+
+  const restart = () => {
+    setError(null);
+    setEnded(false);
+    setSessionKey((k) => k + 1);
+  };
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     let cancelled = false;
+    let exited = false;
     let execStop: (() => Promise<void>) | null = null;
     let execId: string | null = null;
 
@@ -47,20 +60,33 @@ export default function TerminalTab({ containerId }: TerminalTabProps) {
     term.open(el);
 
     // Small delay so the container has its final size before fitting
-    requestAnimationFrame(() => {
+    const fitRaf = requestAnimationFrame(() => {
       fitAddon.fit();
     });
 
     // Start the exec session
-    startExec(containerId, (data) => {
-      if (cancelled) return;
-      term.write(new Uint8Array(data));
-    })
+    startExec(
+      containerId,
+      (data) => {
+        if (cancelled) return;
+        term.write(data);
+      },
+      () => {
+        // Shell exited (e.g. user typed `exit`); backend already cleaned up.
+        if (cancelled) return;
+        exited = true;
+        execId = null;
+        execStop = null;
+        term.write("\r\n\x1b[2m[session ended]\x1b[0m\r\n");
+        setEnded(true);
+      },
+    )
       .then(({ execId: eid, stop }) => {
         if (cancelled) {
           stop().catch(() => {});
           return;
         }
+        if (exited) return;
         execId = eid;
         execStop = stop;
 
@@ -72,9 +98,10 @@ export default function TerminalTab({ containerId }: TerminalTabProps) {
       });
 
     // Forward keystrokes to the backend
+    const encoder = new TextEncoder();
     const dataDisposable = term.onData((data) => {
       if (!execId) return;
-      writeExecInput(execId, new TextEncoder().encode(data)).catch(() => {});
+      writeExecInput(execId, encoder.encode(data)).catch(() => {});
     });
 
     // Forward resize events
@@ -83,14 +110,18 @@ export default function TerminalTab({ containerId }: TerminalTabProps) {
       resizeExecTerminal(execId, cols, rows).catch(() => {});
     });
 
-    // Auto-fit when the container resizes
+    // Auto-fit when the container resizes. Skip while hidden: display:none
+    // collapses the element to 0x0 and fitting then would shrink the live
+    // PTY to FitAddon's minimum geometry, garbling running programs.
     const observer = new ResizeObserver(() => {
+      if (el.clientWidth === 0 || el.clientHeight === 0) return;
       fitAddon.fit();
     });
     observer.observe(el);
 
     return () => {
       cancelled = true;
+      cancelAnimationFrame(fitRaf);
       observer.disconnect();
       dataDisposable.dispose();
       resizeDisposable.dispose();
@@ -98,20 +129,36 @@ export default function TerminalTab({ containerId }: TerminalTabProps) {
       termRef.current = null;
       if (execStop) execStop().catch(() => {});
     };
-  }, [containerId]);
+  }, [containerId, sessionKey]);
 
   if (error) {
     return (
-      <div className="bg-danger/10 border border-danger/30 rounded px-3 py-2 text-sm text-danger">
-        {error}
+      <div className="bg-danger/10 border border-danger/30 rounded px-3 py-2 text-sm text-danger flex items-center justify-between gap-3">
+        <span>{error}</span>
+        <button
+          onClick={restart}
+          className="flex items-center gap-1.5 shrink-0 text-xs text-accent hover:text-docker-blue transition-colors"
+        >
+          <RotateCw className="w-3.5 h-3.5" /> Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="h-full min-h-[300px] rounded-lg overflow-hidden bg-[#0d1117]"
-    />
+    <div className="h-full min-h-[300px] flex flex-col gap-2">
+      <div ref={containerRef} className="flex-1 min-h-0 rounded-lg overflow-hidden bg-[#0d1117]" />
+      {ended && (
+        <div className="flex items-center justify-between bg-surface-raised border border-border rounded-lg px-3 py-2">
+          <span className="text-sm text-text-secondary">Session ended</span>
+          <button
+            onClick={restart}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-docker-blue text-surface font-medium hover:bg-docker-blue/80 transition-colors"
+          >
+            <RotateCw className="w-3.5 h-3.5" /> Restart session
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -23,6 +23,16 @@ export default function DetailView({ containerId }: DetailViewProps) {
   const { data, error, loading, refresh } = useContainer(containerId);
   const navigate = useNavigate();
   const [logsResetKey, setLogsResetKey] = useState(0);
+  // Terminal and Stats are expensive (exec session, stats stream): mount
+  // them on first activation, then keep them mounted (hidden) so the shell
+  // session and chart history survive tab switches.
+  const [activeTab, setActiveTab] = useState("logs");
+  const [visited, setVisited] = useState<Set<string>>(() => new Set(["logs"]));
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setVisited((prev) => (prev.has(value) ? prev : new Set(prev).add(value)));
+  };
 
   const handleAction = (kind: ContainerActionKind) => {
     refresh();
@@ -35,7 +45,10 @@ export default function DetailView({ containerId }: DetailViewProps) {
     return <div className="text-text-secondary">Loading container...</div>;
   }
 
-  if (error || !data) {
+  // Only a missing container is fatal. A transient poll error (daemon
+  // restart, brief overload) must not unmount the tabs: that would kill the
+  // exec session and drop the log buffer and stats history.
+  if (!data) {
     return (
       <div className="bg-danger/10 border border-danger/30 rounded-lg p-6">
         <p className="text-danger font-medium">{error ?? "Container not found"}</p>
@@ -51,6 +64,11 @@ export default function DetailView({ containerId }: DetailViewProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {error && (
+        <div className="bg-danger/10 border border-danger/30 rounded px-3 py-2 mb-3 text-xs text-danger">
+          Container refresh failing: {error}
+        </div>
+      )}
       <div className="flex items-center gap-3 mb-4">
         <button
           onClick={() => navigate("/")}
@@ -70,7 +88,11 @@ export default function DetailView({ containerId }: DetailViewProps) {
         <ContainerActions container={data} onAction={handleAction} />
       </div>
 
-      <Tabs.Root defaultValue="logs" className="flex flex-col flex-1 min-h-0">
+      <Tabs.Root
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="flex flex-col flex-1 min-h-0"
+      >
         <Tabs.List className="flex border-b border-border mb-4">
           <Tabs.Trigger value="logs" className={TAB_TRIGGER}>
             Logs
@@ -94,17 +116,27 @@ export default function DetailView({ containerId }: DetailViewProps) {
           forceMount
           className="flex-1 min-h-0 outline-none data-[state=inactive]:hidden flex flex-col"
         >
-          <LogsTab containerId={containerId} resetKey={logsResetKey} />
+          <LogsTab
+            containerId={containerId}
+            resetKey={logsResetKey}
+            active={activeTab === "logs"}
+          />
         </Tabs.Content>
-        <Tabs.Content value="terminal" className="flex-1 min-h-0 outline-none">
-          <TerminalTab containerId={containerId} />
+        <Tabs.Content
+          value="terminal"
+          forceMount
+          className="flex-1 min-h-0 outline-none data-[state=inactive]:hidden"
+        >
+          {visited.has("terminal") && <TerminalTab containerId={containerId} />}
         </Tabs.Content>
         <Tabs.Content
           value="stats"
           forceMount
           className="flex-1 min-h-0 outline-none data-[state=inactive]:hidden overflow-auto"
         >
-          <StatsTab containerId={containerId} />
+          {visited.has("stats") && (
+            <StatsTab containerId={containerId} active={activeTab === "stats"} />
+          )}
         </Tabs.Content>
         <Tabs.Content value="inspect" className="flex-1 min-h-0 outline-none overflow-auto">
           <InspectTab containerId={containerId} />

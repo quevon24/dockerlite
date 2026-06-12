@@ -10,7 +10,8 @@ export default function ContainerDetailPage() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <DetailView containerId={id} />
+      {/* Key by id so switching containers resets tab and stream state. */}
+      <DetailView key={id} containerId={id} />
     </div>
   );
 }

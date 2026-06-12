@@ -59,29 +59,67 @@ pub async fn get_info(client: &Docker) -> Result<SystemInfoResponse> {
     })
 }
 
+/// Timeout for raw requests: sizing volumes makes /system/df slow on large
+/// daemons, but the command must never hang the frontend forever.
+const RAW_GET_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
 /// Make a raw HTTP GET to the Docker Unix socket and return parsed JSON.
 /// Bypasses Bollard entirely to avoid field-name mismatches in the df
 /// response (Bollard 0.20 expects names the Docker API doesn't use).
 async fn raw_docker_get(socket_path: &str, path: &str) -> Result<serde_json::Value> {
-    let mut stream = UnixStream::connect(socket_path)
-        .await
-        .map_err(DockerLiteError::Io)?;
+    tokio::time::timeout(RAW_GET_TIMEOUT, async {
+        let mut stream = UnixStream::connect(socket_path)
+            .await
+            .map_err(DockerLiteError::Io)?;
 
-    let req = format!("GET {path} HTTP/1.0\r\nHost: localhost\r\nAccept: application/json\r\n\r\n");
-    stream
-        .write_all(req.as_bytes())
-        .await
-        .map_err(DockerLiteError::Io)?;
+        let req =
+            format!("GET {path} HTTP/1.0\r\nHost: localhost\r\nAccept: application/json\r\n\r\n");
+        stream
+            .write_all(req.as_bytes())
+            .await
+            .map_err(DockerLiteError::Io)?;
 
-    let mut buf = Vec::new();
-    stream
-        .read_to_end(&mut buf)
-        .await
-        .map_err(DockerLiteError::Io)?;
+        let mut buf = Vec::new();
+        stream
+            .read_to_end(&mut buf)
+            .await
+            .map_err(DockerLiteError::Io)?;
 
-    let text = String::from_utf8_lossy(&buf);
-    let body_start = text.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
-    serde_json::from_str(&text[body_start..]).map_err(DockerLiteError::Serialization)
+        let text = String::from_utf8_lossy(&buf);
+
+        // Status line looks like "HTTP/1.0 200 OK".
+        let status = text
+            .lines()
+            .next()
+            .and_then(|line| line.split_whitespace().nth(1))
+            .and_then(|code| code.parse::<u16>().ok())
+            .ok_or_else(|| {
+                DockerLiteError::Connection("Malformed response from Docker daemon".to_string())
+            })?;
+
+        let body_start = text.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+        let body = &text[body_start..];
+
+        if !(200..300).contains(&status) {
+            // Error bodies look like {"message": "..."}.
+            let message = serde_json::from_str::<serde_json::Value>(body)
+                .ok()
+                .and_then(|v| v.get("message")?.as_str().map(String::from))
+                .unwrap_or_else(|| format!("HTTP {status}"));
+            return Err(DockerLiteError::Connection(format!(
+                "Docker daemon returned an error: {message}"
+            )));
+        }
+
+        serde_json::from_str(body).map_err(DockerLiteError::Serialization)
+    })
+    .await
+    .map_err(|_| {
+        DockerLiteError::Connection(format!(
+            "Docker daemon did not respond within {}s",
+            RAW_GET_TIMEOUT.as_secs()
+        ))
+    })?
 }
 
 fn sum_i64(arr: Option<&Vec<serde_json::Value>>, key: &str) -> i64 {
@@ -107,7 +145,9 @@ pub async fn get_disk_usage(socket_path: &str) -> Result<DiskUsageResponse> {
 
     let images = df.get("Images").and_then(|v| v.as_array());
     let images_count = images.map(|a| a.len()).unwrap_or(0) as i64;
-    let images_size = sum_i64(images, "Size");
+    // Use the daemon's LayersSize total: per-image Size includes layers
+    // shared with other images, so summing it double-counts them.
+    let images_size = df.get("LayersSize").and_then(|v| v.as_i64()).unwrap_or(0);
 
     let containers = df.get("Containers").and_then(|v| v.as_array());
     let containers_count = containers.map(|a| a.len()).unwrap_or(0) as i64;

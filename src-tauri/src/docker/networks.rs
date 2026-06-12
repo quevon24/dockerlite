@@ -1,4 +1,5 @@
 use bollard::Docker;
+use futures_util::StreamExt;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -30,45 +31,47 @@ pub struct NetworkInfo {
 }
 
 /// List all networks. Uses inspect_network per network to get connected
-/// containers (the list endpoint does not include them).
+/// containers (the list endpoint does not include them); inspects run
+/// concurrently with bounded parallelism so compose-heavy hosts don't pay
+/// one round-trip per network.
 pub async fn list_all(client: &Docker) -> Result<Vec<NetworkInfo>> {
     let networks = client.list_networks(None).await?;
-    let mut result = Vec::with_capacity(networks.len());
 
-    for n in networks {
-        let id = n.id.unwrap_or_default();
-        let name = n.name.unwrap_or_default();
+    let result = futures_util::stream::iter(networks)
+        .map(|n| async move {
+            let id = n.id.unwrap_or_default();
+            let containers = match client.inspect_network(&id, None).await {
+                Ok(inspect) => inspect
+                    .containers
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(cid, ep)| NetworkContainer {
+                        container_id: cid,
+                        name: ep.name.unwrap_or_default(),
+                        ipv4_address: ep.ipv4_address.unwrap_or_default(),
+                        ipv6_address: ep.ipv6_address.unwrap_or_default(),
+                    })
+                    .collect(),
+                Err(_) => Vec::new(),
+            };
 
-        // Inspect each network to get attached containers
-        let containers = match client.inspect_network(&id, None).await {
-            Ok(inspect) => inspect
-                .containers
-                .unwrap_or_default()
-                .into_iter()
-                .map(|(cid, ep)| NetworkContainer {
-                    container_id: cid,
-                    name: ep.name.unwrap_or_default(),
-                    ipv4_address: ep.ipv4_address.unwrap_or_default(),
-                    ipv6_address: ep.ipv6_address.unwrap_or_default(),
-                })
-                .collect(),
-            Err(_) => Vec::new(),
-        };
-
-        result.push(NetworkInfo {
-            id,
-            name,
-            driver: n.driver.unwrap_or_default(),
-            scope: n.scope.unwrap_or_default(),
-            internal: n.internal.unwrap_or(false),
-            enable_ipv6: n.enable_ipv6.unwrap_or(false),
-            attachable: n.attachable.unwrap_or(false),
-            ingress: n.ingress.unwrap_or(false),
-            containers,
-            labels: n.labels.unwrap_or_default(),
-            options: n.options.unwrap_or_default(),
-        });
-    }
+            NetworkInfo {
+                id,
+                name: n.name.unwrap_or_default(),
+                driver: n.driver.unwrap_or_default(),
+                scope: n.scope.unwrap_or_default(),
+                internal: n.internal.unwrap_or(false),
+                enable_ipv6: n.enable_ipv6.unwrap_or(false),
+                attachable: n.attachable.unwrap_or(false),
+                ingress: n.ingress.unwrap_or(false),
+                containers,
+                labels: n.labels.unwrap_or_default(),
+                options: n.options.unwrap_or_default(),
+            }
+        })
+        .buffered(8)
+        .collect::<Vec<_>>()
+        .await;
 
     Ok(result)
 }

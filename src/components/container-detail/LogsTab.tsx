@@ -1,43 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, Eraser, Clock } from "lucide-react";
 import { useContainerLogs } from "../../lib/hooks/useContainerLogs";
+import { useSettings } from "../../lib/SettingsContext";
 
 interface LogsTabProps {
   containerId: string;
   resetKey?: number;
+  active?: boolean;
 }
 
-/**
- * Strip ANSI color/control sequences from a log line for safe display.
- */
-function stripAnsi(text: string): string {
-  // eslint-disable-next-line no-control-regex
-  return text.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "");
-}
-
-function formatTimestamp(iso: string | null): string {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString();
-  } catch {
-    return iso;
-  }
-}
-
-export default function LogsTab({ containerId, resetKey = 0 }: LogsTabProps) {
-  const { lines, error, clear } = useContainerLogs(containerId, 200, resetKey);
+export default function LogsTab({ containerId, resetKey = 0, active = true }: LogsTabProps) {
+  const { settings } = useSettings();
+  const { lines, error, ended, clear } = useContainerLogs(
+    containerId,
+    200,
+    resetKey,
+    settings.logBufferSize,
+    active,
+  );
   const [autoScroll, setAutoScroll] = useState(true);
   const [showTimestamps, setShowTimestamps] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Depend on the array identity, not its length: once the ring buffer is
+  // full the length stays constant even though new lines keep arriving.
   useEffect(() => {
     if (!autoScroll) return;
     const el = containerRef.current;
     if (el) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [lines.length, autoScroll]);
+  }, [lines, autoScroll]);
 
   // Pause auto-scroll if the user scrolls up
   const onScroll = () => {
@@ -95,19 +88,22 @@ export default function LogsTab({ containerId, resetKey = 0 }: LogsTabProps) {
         {lines.length === 0 && !error && (
           <div className="text-text-muted italic">Waiting for log output...</div>
         )}
-        {lines.map((line, i) => (
+        {lines.map((line) => (
           <div
-            key={i}
+            key={line.id}
             className={`whitespace-pre-wrap ${
               line.stream === "stderr" ? "text-danger" : "text-text-primary"
             }`}
           >
-            {showTimestamps && line.timestamp && (
-              <span className="text-text-muted mr-2">{formatTimestamp(line.timestamp)}</span>
+            {showTimestamps && line.time && (
+              <span className="text-text-muted mr-2">{line.time}</span>
             )}
-            {stripAnsi(line.text)}
+            {line.text}
           </div>
         ))}
+        {ended && (
+          <div className="text-text-muted italic mt-2">Log stream ended (container removed).</div>
+        )}
       </div>
     </div>
   );

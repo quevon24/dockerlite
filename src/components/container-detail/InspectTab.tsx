@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Copy, Check, ChevronRight, ChevronDown } from "lucide-react";
 import { inspectContainer } from "../../lib/tauri";
 
@@ -95,24 +95,40 @@ export default function InspectTab({ containerId }: InspectTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(copyTimeoutRef.current), []);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     inspectContainer(containerId)
       .then((d) => {
+        if (cancelled) return;
         setData(d);
         setError(null);
       })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [containerId]);
 
   const copyJson = () => {
     if (!data) return;
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    navigator.clipboard
+      .writeText(JSON.stringify(data, null, 2))
+      .then(() => {
+        setCopied(true);
+        window.clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = window.setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
   };
 
   if (loading) {

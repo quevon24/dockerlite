@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { Layers, Trash2, RefreshCw, Filter, Check, X, ChevronUp, ChevronDown } from "lucide-react";
 import { useImages } from "../lib/hooks/useImages";
+import { useSettings } from "../lib/SettingsContext";
 import type { ImageInfo } from "../lib/types";
 import { removeImage } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
@@ -57,7 +58,8 @@ function sortImages(images: ImageInfo[], key: SortKey, dir: SortDir): ImageInfo[
 }
 
 export default function ImagesPage() {
-  const { data, error, loading, refresh } = useImages();
+  const { settings } = useSettings();
+  const { data, error, loading, refresh } = useImages(settings.refreshIntervalImages);
   const { toast } = useToast();
   const [showDangling, setShowDangling] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -66,9 +68,14 @@ export default function ImagesPage() {
     name: string;
   } | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [detailImage, setDetailImage] = useState<ImageInfo | null>(null);
+  const [detailImageId, setDetailImageId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  // Derive the panel's image from live data so it refreshes with the poll
+  // and closes when the image disappears (e.g. removed elsewhere).
+  const detailImage = data.find((i) => i.id === detailImageId) ?? null;
+  const closeDetail = useCallback(() => setDetailImageId(null), []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -266,11 +273,11 @@ export default function ImagesPage() {
               {filtered.map((img) => (
                 <tr
                   key={img.id}
-                  onClick={() => setDetailImage(img)}
+                  onClick={() => setDetailImageId(img.id)}
                   className={`border-b border-border transition-colors cursor-pointer ${
                     img.dangling
                       ? "bg-warning/5 hover:bg-warning/10"
-                      : detailImage?.id === img.id
+                      : detailImageId === img.id
                         ? "bg-surface-overlay/60"
                         : selected.has(img.id)
                           ? "bg-surface-overlay/40 hover:bg-surface-overlay/50"
@@ -357,7 +364,7 @@ export default function ImagesPage() {
         onOpenChange={setBulkDeleteOpen}
       />
 
-      <ImageDetailPanel image={detailImage} onClose={() => setDetailImage(null)} />
+      <ImageDetailPanel image={detailImage} onClose={closeDetail} />
     </div>
   );
 }

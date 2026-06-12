@@ -11,6 +11,7 @@ import { useContainerStats } from "../../lib/hooks/useContainerStats";
 
 interface StatsTabProps {
   containerId: string;
+  active?: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -49,8 +50,14 @@ function ChartCard({ title, subtitle, children }: ChartCardProps) {
   );
 }
 
-export default function StatsTab({ containerId }: StatsTabProps) {
-  const { history, latest, error } = useContainerStats(containerId);
+export default function StatsTab({ containerId, active = true }: StatsTabProps) {
+  const { history, latest, error, ended } = useContainerStats(containerId);
+
+  // The stream keeps running (and history accumulating) while the tab is
+  // hidden, but skip rendering three charts nobody can see at ~1Hz.
+  if (!active) {
+    return null;
+  }
 
   if (error) {
     return (
@@ -61,7 +68,11 @@ export default function StatsTab({ containerId }: StatsTabProps) {
   }
 
   if (history.length === 0) {
-    return <div className="text-text-muted text-sm italic">Waiting for stats...</div>;
+    return (
+      <div className="text-text-muted text-sm italic">
+        {ended ? "Stats stream ended (container removed)." : "Waiting for stats..."}
+      </div>
+    );
   }
 
   const memSubtitle = latest

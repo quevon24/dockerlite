@@ -47,15 +47,17 @@ function BoolRow({ label, value }: { label: string; value: boolean }) {
 }
 
 export default function NetworkDetailPanel({ network, onClose }: Props) {
+  const open = network !== null;
+
+  // Only listen for Escape while the panel is open.
   useEffect(() => {
+    if (!open) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  const open = network !== null;
+  }, [open, onClose]);
   const labels = network ? Object.entries(network.labels) : [];
   const options = network ? Object.entries(network.options) : [];
 

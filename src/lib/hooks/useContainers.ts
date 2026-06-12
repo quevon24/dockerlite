@@ -14,18 +14,21 @@ export function useContainers(intervalMs: number = 3000): UseContainersResult {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const genRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    // Overlapping polls can resolve out of order; only the latest applies.
+    const gen = ++genRef.current;
     try {
       const containers = await listContainers();
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || gen !== genRef.current) return;
       setData(containers);
       setError(null);
     } catch (e) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || gen !== genRef.current) return;
       setError(String(e));
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && gen === genRef.current) {
         setLoading(false);
       }
     }

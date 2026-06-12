@@ -19,7 +19,7 @@ function navClass({ isActive }: { isActive: boolean }): string {
 }
 
 export default function Sidebar() {
-  const { data, error } = useSystemInfo();
+  const { data, error } = useSystemInfo(10_000);
 
   const connected = data !== null && error === null;
 

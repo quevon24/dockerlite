@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { Trash2, Check, RefreshCw } from "lucide-react";
 import {
@@ -70,6 +70,7 @@ const PRUNE_OPTIONS: PruneOption[] = [
 export default function SystemPage() {
   const { toast } = useToast();
   const [diskUsage, setDiskUsage] = useState<DiskUsage | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pruning, setPruning] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(
@@ -77,21 +78,34 @@ export default function SystemPage() {
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const mountedRef = useRef(true);
+
   const fetchDiskUsage = (showToast = false) => {
     setLoading(true);
     getDiskUsage()
       .then((data) => {
+        if (!mountedRef.current) return;
         setDiskUsage(data);
+        setError(null);
         if (showToast) toast("Disk usage refreshed", undefined, "info");
       })
       .catch((e) => {
+        if (!mountedRef.current) return;
+        setError(String(e));
         if (showToast) toast("Failed to fetch disk usage", String(e), "error");
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (mountedRef.current) setLoading(false);
+      });
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchDiskUsage();
+    return () => {
+      mountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleOption = (id: string) => {
@@ -179,6 +193,19 @@ export default function SystemPage() {
       {loading && !diskUsage && (
         <div className="bg-surface-raised border border-border rounded-lg p-8 text-center text-text-secondary mb-6">
           Loading disk usage...
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-6 text-center mb-6">
+          <p className="text-danger font-medium mb-2">Failed to load disk usage</p>
+          <p className="text-text-secondary text-sm mb-3">{error}</p>
+          <button
+            onClick={() => fetchDiskUsage(false)}
+            className="inline-flex items-center gap-2 text-sm text-accent hover:text-docker-blue transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Retry
+          </button>
         </div>
       )}
 

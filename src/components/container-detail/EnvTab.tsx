@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { inspectContainer } from "../../lib/tauri";
 
@@ -23,12 +23,19 @@ function parseEnv(raw: string[]): EnvVar[] {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timeoutRef.current), []);
 
   const copy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    });
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true);
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = window.setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
   };
 
   return (
@@ -48,17 +55,26 @@ export default function EnvTab({ containerId }: EnvTabProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     inspectContainer(containerId)
       .then((data) => {
+        if (cancelled) return;
         const inspect = data as Record<string, unknown>;
         const config = inspect?.Config as Record<string, unknown> | undefined;
         const env = (config?.Env as string[]) ?? [];
         setEnvVars(parseEnv(env));
         setError(null);
       })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [containerId]);
 
   if (loading) {
@@ -88,8 +104,9 @@ export default function EnvTab({ containerId }: EnvTabProps) {
           </tr>
         </thead>
         <tbody>
-          {envVars.map((env) => (
-            <tr key={env.key} className="border-t border-border">
+          {/* Key by name + index: Docker allows duplicate env names. */}
+          {envVars.map((env, i) => (
+            <tr key={`${env.key}-${i}`} className="border-t border-border">
               <td className="px-4 py-2 font-mono text-xs text-accent whitespace-nowrap">
                 {env.key}
               </td>

@@ -19,13 +19,23 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
-tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bollard = "0.20.2"
-tokio = { version = "1.52.0", features = ["full"] }
+tokio = { version = "1.52.0", features = [
+    "rt-multi-thread",
+    "macros",
+    "time",
+    "net",
+    "io-util",
+    "sync",
+] }
 thiserror = "2"
 futures-util = "0.3.32"
-chrono = { version = "0.4.44", features = ["serde"] }
 tauri-plugin-store = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
 

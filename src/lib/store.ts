@@ -1,4 +1,4 @@
-import { load } from "@tauri-apps/plugin-store";
+import { getStore, type Store } from "@tauri-apps/plugin-store";
 
 export interface AppSettings {
   socketPath: string;
@@ -24,11 +24,19 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 const STORE_PATH = "settings.json";
 
-let storeInstance: Awaited<ReturnType<typeof load>> | null = null;
+let storeInstance: Store | null = null;
 
-async function getStore() {
+/**
+ * The store is created by the Rust side at startup; the webview only holds
+ * the `get-store` capability (a handle to an existing store), so it cannot
+ * load or create stores at arbitrary paths.
+ */
+async function getSettingsStore(): Promise<Store> {
   if (!storeInstance) {
-    storeInstance = await load(STORE_PATH, { autoSave: true, defaults: {} });
+    storeInstance = await getStore(STORE_PATH);
+  }
+  if (!storeInstance) {
+    throw new Error("Settings store was not initialized by the backend");
   }
   return storeInstance;
 }
@@ -66,7 +74,7 @@ function sanitizeSettings(saved: Partial<AppSettings>): AppSettings {
 
 export async function loadSettings(): Promise<AppSettings> {
   try {
-    const store = await getStore();
+    const store = await getSettingsStore();
     const saved = await store.get<Partial<AppSettings>>("settings");
     return sanitizeSettings(saved ?? {});
   } catch {
@@ -75,6 +83,7 @@ export async function loadSettings(): Promise<AppSettings> {
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
-  const store = await getStore();
+  const store = await getSettingsStore();
   await store.set("settings", settings);
+  await store.save();
 }

@@ -34,7 +34,7 @@ pub async fn reconnect_docker(
     socket_path: String,
     docker: State<'_, DockerState>,
 ) -> Result<(), DockerLiteError> {
-    docker.reconnect(&socket_path)
+    docker.reconnect(&socket_path).await
 }
 
 #[tauri::command]

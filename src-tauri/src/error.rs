@@ -34,10 +34,16 @@ impl Serialize for DockerLiteError {
     }
 }
 
-/// Validate that a Docker socket exists and is accessible.
+/// Validate that a Docker socket exists, is accessible, and is actually a
+/// Unix socket (not a regular file or directory).
 pub fn validate_socket(path: &str) -> Result<()> {
+    use std::os::unix::fs::FileTypeExt;
+
     match std::fs::metadata(path) {
-        Ok(_) => Ok(()),
+        Ok(meta) if meta.file_type().is_socket() => Ok(()),
+        Ok(_) => Err(DockerLiteError::Connection(format!(
+            "{path} exists but is not a Unix socket"
+        ))),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             Err(DockerLiteError::SocketNotFound {
                 path: path.to_string(),

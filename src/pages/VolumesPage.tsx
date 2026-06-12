@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { HardDrive, Trash2, RefreshCw, Filter, ChevronUp, ChevronDown } from "lucide-react";
 import { useVolumes } from "../lib/hooks/useVolumes";
+import { useSettings } from "../lib/SettingsContext";
 import type { VolumeInfo } from "../lib/types";
 import { removeVolume } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
@@ -29,7 +30,8 @@ function sortVolumes(volumes: VolumeInfo[], key: SortKey, dir: SortDir): VolumeI
 }
 
 export default function VolumesPage() {
-  const { data, error, loading, refresh } = useVolumes();
+  const { settings } = useSettings();
+  const { data, error, loading, refresh } = useVolumes(settings.refreshIntervalVolumes);
   const { toast } = useToast();
   const [showOrphans, setShowOrphans] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);

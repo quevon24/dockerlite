@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Network, Trash2, RefreshCw } from "lucide-react";
 import { useNetworks } from "../lib/hooks/useNetworks";
+import { useSettings } from "../lib/SettingsContext";
 import type { NetworkInfo } from "../lib/types";
 import { removeNetwork } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
@@ -10,7 +11,8 @@ import NetworkDetailPanel from "../components/networks/NetworkDetailPanel";
 const BUILTIN_NETWORKS = ["bridge", "host", "none"];
 
 export default function NetworksPage() {
-  const { data: rawData, error, loading, refresh } = useNetworks();
+  const { settings } = useSettings();
+  const { data: rawData, error, loading, refresh } = useNetworks(settings.refreshIntervalNetworks);
   const data = [...rawData].sort((a, b) => a.name.localeCompare(b.name));
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{

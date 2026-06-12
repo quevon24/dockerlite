@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Box, RefreshCw } from "lucide-react";
 import { useContainers } from "../../lib/hooks/useContainers";
+import { useSettings } from "../../lib/SettingsContext";
 import type { ContainerInfo } from "../../lib/types";
 import ContainerRow from "./ContainerRow";
 import ComposeGroup from "./ComposeGroup";
@@ -27,8 +28,20 @@ function groupByCompose(containers: ContainerInfo[]): Groups {
 }
 
 export default function ContainerTable() {
-  const { data, error, loading, refresh } = useContainers();
+  const { settings } = useSettings();
+  const { data, error, loading, refresh } = useContainers(settings.refreshIntervalContainers);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Drop selected ids whose containers no longer exist (removed elsewhere),
+  // so bulk actions don't target dead containers.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const live = new Set(data.map((c) => c.id));
+      const next = new Set([...prev].filter((id) => live.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [data]);
 
   const groups = useMemo(() => groupByCompose(data), [data]);
   const sortedProjectNames = useMemo(

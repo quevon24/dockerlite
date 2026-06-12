@@ -25,10 +25,13 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
   const copy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    });
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
   };
 
   return (
@@ -48,17 +51,26 @@ export default function EnvTab({ containerId }: EnvTabProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     inspectContainer(containerId)
       .then((data) => {
+        if (cancelled) return;
         const inspect = data as Record<string, unknown>;
         const config = inspect?.Config as Record<string, unknown> | undefined;
         const env = (config?.Env as string[]) ?? [];
         setEnvVars(parseEnv(env));
         setError(null);
       })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [containerId]);
 
   if (loading) {

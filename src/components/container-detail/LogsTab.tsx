@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, Eraser, Clock } from "lucide-react";
 import { useContainerLogs } from "../../lib/hooks/useContainerLogs";
+import { useSettings } from "../../lib/SettingsContext";
 
 interface LogsTabProps {
   containerId: string;
@@ -8,11 +9,17 @@ interface LogsTabProps {
 }
 
 /**
- * Strip ANSI color/control sequences from a log line for safe display.
+ * Strip ANSI/terminal control sequences from a log line for clean display:
+ * CSI sequences, OSC sequences (BEL- or ST-terminated, or truncated at end
+ * of line), charset selection, and remaining C0 control bytes except tab
+ * and newline.
  */
-function stripAnsi(text: string): string {
+const ANSI_PATTERN =
   // eslint-disable-next-line no-control-regex
-  return text.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "");
+  /\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[()][0-9A-B]|[\x00-\x08\x0b-\x1f\x7f]/g;
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_PATTERN, "");
 }
 
 function formatTimestamp(iso: string | null): string {
@@ -26,18 +33,26 @@ function formatTimestamp(iso: string | null): string {
 }
 
 export default function LogsTab({ containerId, resetKey = 0 }: LogsTabProps) {
-  const { lines, error, clear } = useContainerLogs(containerId, 200, resetKey);
+  const { settings } = useSettings();
+  const { lines, error, clear } = useContainerLogs(
+    containerId,
+    200,
+    resetKey,
+    settings.logBufferSize,
+  );
   const [autoScroll, setAutoScroll] = useState(true);
   const [showTimestamps, setShowTimestamps] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Depend on the array identity, not its length: once the ring buffer is
+  // full the length stays constant even though new lines keep arriving.
   useEffect(() => {
     if (!autoScroll) return;
     const el = containerRef.current;
     if (el) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [lines.length, autoScroll]);
+  }, [lines, autoScroll]);
 
   // Pause auto-scroll if the user scrolls up
   const onScroll = () => {
@@ -95,9 +110,9 @@ export default function LogsTab({ containerId, resetKey = 0 }: LogsTabProps) {
         {lines.length === 0 && !error && (
           <div className="text-text-muted italic">Waiting for log output...</div>
         )}
-        {lines.map((line, i) => (
+        {lines.map((line) => (
           <div
-            key={i}
+            key={line.id}
             className={`whitespace-pre-wrap ${
               line.stream === "stderr" ? "text-danger" : "text-text-primary"
             }`}

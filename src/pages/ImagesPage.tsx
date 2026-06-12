@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { Layers, Trash2, RefreshCw, Filter, Check, X, ChevronUp, ChevronDown } from "lucide-react";
 import { useImages } from "../lib/hooks/useImages";
+import { useSettings } from "../lib/SettingsContext";
 import type { ImageInfo } from "../lib/types";
 import { removeImage } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
@@ -57,7 +58,8 @@ function sortImages(images: ImageInfo[], key: SortKey, dir: SortDir): ImageInfo[
 }
 
 export default function ImagesPage() {
-  const { data, error, loading, refresh } = useImages();
+  const { settings } = useSettings();
+  const { data, error, loading, refresh } = useImages(settings.refreshIntervalImages);
   const { toast } = useToast();
   const [showDangling, setShowDangling] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());

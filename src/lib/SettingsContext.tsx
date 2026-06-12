@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { type AppSettings, DEFAULT_SETTINGS, loadSettings, saveSettings } from "./store";
 import { setMinimizeToTray } from "./tauri";
 
@@ -21,9 +21,13 @@ export function useSettings() {
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+  // Latest settings, updated synchronously so rapid update() calls don't
+  // clobber each other before React re-renders.
+  const settingsRef = useRef(settings);
 
   useEffect(() => {
     loadSettings().then((s) => {
+      settingsRef.current = s;
       setSettings(s);
       applyTheme(s.theme);
       setMinimizeToTray(s.minimizeToTray).catch(() => {});
@@ -31,16 +35,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Side effects run outside the state updater: updaters must be pure
+  // (StrictMode double-invokes them, so saving inside would persist twice).
   const update = useCallback(async (partial: Partial<AppSettings>) => {
-    setSettings((prev) => {
-      const next = { ...prev, ...partial };
-      saveSettings(next).catch(() => {});
-      if (partial.theme) applyTheme(partial.theme);
-      if (partial.minimizeToTray !== undefined) {
-        setMinimizeToTray(partial.minimizeToTray).catch(() => {});
-      }
-      return next;
-    });
+    const next = { ...settingsRef.current, ...partial };
+    settingsRef.current = next;
+    setSettings(next);
+    if (partial.theme) applyTheme(partial.theme);
+    if (partial.minimizeToTray !== undefined) {
+      setMinimizeToTray(partial.minimizeToTray).catch(() => {});
+    }
+    await saveSettings(next).catch(() => {});
   }, []);
 
   return (

@@ -23,6 +23,16 @@ export default function DetailView({ containerId }: DetailViewProps) {
   const { data, error, loading, refresh } = useContainer(containerId);
   const navigate = useNavigate();
   const [logsResetKey, setLogsResetKey] = useState(0);
+  // Terminal and Stats are expensive (exec session, stats stream): mount
+  // them on first activation, then keep them mounted (hidden) so the shell
+  // session and chart history survive tab switches.
+  const [activeTab, setActiveTab] = useState("logs");
+  const [visited, setVisited] = useState<Set<string>>(() => new Set(["logs"]));
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setVisited((prev) => (prev.has(value) ? prev : new Set(prev).add(value)));
+  };
 
   const handleAction = (kind: ContainerActionKind) => {
     refresh();
@@ -70,7 +80,11 @@ export default function DetailView({ containerId }: DetailViewProps) {
         <ContainerActions container={data} onAction={handleAction} />
       </div>
 
-      <Tabs.Root defaultValue="logs" className="flex flex-col flex-1 min-h-0">
+      <Tabs.Root
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="flex flex-col flex-1 min-h-0"
+      >
         <Tabs.List className="flex border-b border-border mb-4">
           <Tabs.Trigger value="logs" className={TAB_TRIGGER}>
             Logs
@@ -96,15 +110,19 @@ export default function DetailView({ containerId }: DetailViewProps) {
         >
           <LogsTab containerId={containerId} resetKey={logsResetKey} />
         </Tabs.Content>
-        <Tabs.Content value="terminal" className="flex-1 min-h-0 outline-none">
-          <TerminalTab containerId={containerId} />
+        <Tabs.Content
+          value="terminal"
+          forceMount
+          className="flex-1 min-h-0 outline-none data-[state=inactive]:hidden"
+        >
+          {visited.has("terminal") && <TerminalTab containerId={containerId} />}
         </Tabs.Content>
         <Tabs.Content
           value="stats"
           forceMount
           className="flex-1 min-h-0 outline-none data-[state=inactive]:hidden overflow-auto"
         >
-          <StatsTab containerId={containerId} />
+          {visited.has("stats") && <StatsTab containerId={containerId} />}
         </Tabs.Content>
         <Tabs.Content value="inspect" className="flex-1 min-h-0 outline-none overflow-auto">
           <InspectTab containerId={containerId} />

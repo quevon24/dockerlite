@@ -70,6 +70,7 @@ const PRUNE_OPTIONS: PruneOption[] = [
 export default function SystemPage() {
   const { toast } = useToast();
   const [diskUsage, setDiskUsage] = useState<DiskUsage | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pruning, setPruning] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(
@@ -82,9 +83,11 @@ export default function SystemPage() {
     getDiskUsage()
       .then((data) => {
         setDiskUsage(data);
+        setError(null);
         if (showToast) toast("Disk usage refreshed", undefined, "info");
       })
       .catch((e) => {
+        setError(String(e));
         if (showToast) toast("Failed to fetch disk usage", String(e), "error");
       })
       .finally(() => setLoading(false));
@@ -179,6 +182,19 @@ export default function SystemPage() {
       {loading && !diskUsage && (
         <div className="bg-surface-raised border border-border rounded-lg p-8 text-center text-text-secondary mb-6">
           Loading disk usage...
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-6 text-center mb-6">
+          <p className="text-danger font-medium mb-2">Failed to load disk usage</p>
+          <p className="text-text-secondary text-sm mb-3">{error}</p>
+          <button
+            onClick={() => fetchDiskUsage(false)}
+            className="inline-flex items-center gap-2 text-sm text-accent hover:text-docker-blue transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Retry
+          </button>
         </div>
       )}
 

@@ -97,22 +97,34 @@ export default function InspectTab({ containerId }: InspectTabProps) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     inspectContainer(containerId)
       .then((d) => {
+        if (cancelled) return;
         setData(d);
         setError(null);
       })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [containerId]);
 
   const copyJson = () => {
     if (!data) return;
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    navigator.clipboard
+      .writeText(JSON.stringify(data, null, 2))
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
   };
 
   if (loading) {

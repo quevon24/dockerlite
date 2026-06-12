@@ -39,11 +39,37 @@ jobs:
         with:
           workspaces: src-tauri
 
+      # Build only; the release is created below, after the AppImage repack.
       - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
+
+      # Ubuntu's bundled libwayland breaks EGL on hosts with newer Mesa
+      # (blank window, "EGL_BAD_PARAMETER"). Current linuxdeploy excludes
+      # libwayland, but tauri pins an older build that doesn't, so strip it
+      # and repack. See tauri-apps/tauri#11994.
+      - name: Repack AppImage without bundled libwayland
+        run: |
+          set -euo pipefail
+          appimage=$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -print -quit)
+          dir=$(dirname "$appimage")
+          name=$(basename "$appimage")
+          cd "$dir"
+          chmod +x "$name"
+          ./"$name" --appimage-extract > /dev/null
+          find squashfs-root -name 'libwayland-*.so*' -delete
+          curl -fsSL -o appimagetool \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run --no-appstream squashfs-root "$name"
+          rm -rf squashfs-root appimagetool
+
+      - name: Create draft release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: DockerLite ${{ github.ref_name }}
-          releaseDraft: true
-          prerelease: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --draft \
+            --title "DockerLite $GITHUB_REF_NAME" \
+            --verify-tag \
+            src-tauri/target/release/bundle/appimage/*.AppImage \
+            src-tauri/target/release/bundle/deb/*.deb \
+            src-tauri/target/release/bundle/rpm/*.rpm

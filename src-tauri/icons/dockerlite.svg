@@ -2,8 +2,10 @@
   <!-- Background circle -->
   <circle cx="256" cy="256" r="240" fill="#0d1117"/>
   <circle cx="256" cy="256" r="234" fill="none" stroke="#0db7ed" stroke-width="6" opacity="0.3"/>
-  <!-- Container/Box icon (based on Lucide Box) -->
-  <g transform="translate(128, 120) scale(1.6)">
+  <!-- Container/Box icon (based on Lucide Box). Local bounds are x 32-168,
+       y 28-196 (center 100,112); translate = 256 - 1.6*center keeps the
+       scaled box centered in the 512x512 circle. -->
+  <g transform="translate(96, 76.8) scale(1.6)">
     <!-- Top face -->
     <path d="M100 28L168 64V96L100 60V28Z" fill="#0db7ed" opacity="0.9"/>
     <path d="M100 28L32 64V96L100 60V28Z" fill="#0db7ed" opacity="0.7"/>

@@ -1,8 +1,22 @@
 # DockerLite
 
 [![CI](https://github.com/quevon24/dockerlite/actions/workflows/ci.yml/badge.svg)](https://github.com/quevon24/dockerlite/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/quevon24/dockerlite)](https://github.com/quevon24/dockerlite/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/quevon24/dockerlite/total)](https://github.com/quevon24/dockerlite/releases)
 
 A lightweight, native Docker Desktop replacement for Linux built with [Tauri](https://tauri.app). Connects directly to the local Docker Engine via the Unix socket for high-performance container management.
+
+## Download
+
+Prebuilt packages are available on the [Releases page](https://github.com/quevon24/dockerlite/releases/latest):
+
+| Format | Install |
+|---|---|
+| AppImage (any distro) | `chmod +x DockerLite_*.AppImage && ./DockerLite_*.AppImage` |
+| .deb (Debian/Ubuntu) | `sudo apt install ./DockerLite_*_amd64.deb` |
+| .rpm (Fedora/openSUSE) | `sudo dnf install DockerLite-*.x86_64.rpm` |
+
+Requires a running Docker Engine and your user in the `docker` group (see [Prerequisites](#prerequisites)).
 
 ## Features
 

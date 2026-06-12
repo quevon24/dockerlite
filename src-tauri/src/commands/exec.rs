@@ -1,14 +1,15 @@
 use futures_util::StreamExt;
-use tauri::ipc::Channel;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{Manager, State};
 
 use crate::error::DockerLiteError;
 use crate::state::{DockerState, ExecRegistry, StreamRegistry};
 
 /// Create and start an interactive exec session (/bin/sh) inside a container.
-/// Output bytes are sent through the Tauri Channel; an empty payload signals
-/// that the session ended. Returns the exec ID so the frontend can address
-/// write_exec_input and resize_exec_terminal to it.
+/// Output is sent through the Tauri Channel as raw bytes (an ArrayBuffer on
+/// the JS side, avoiding JSON number-array serialization); an empty payload
+/// signals that the session ended. Returns the exec ID so the frontend can
+/// address write_exec_input and resize_exec_terminal to it.
 #[tauri::command]
 pub async fn start_exec(
     container_id: String,
@@ -16,7 +17,7 @@ pub async fn start_exec(
     docker: State<'_, DockerState>,
     execs: State<'_, ExecRegistry>,
     streams: State<'_, StreamRegistry>,
-    on_output: Channel<Vec<u8>>,
+    on_output: Channel<InvokeResponseBody>,
 ) -> Result<String, DockerLiteError> {
     let client = docker.client()?;
 
@@ -26,6 +27,7 @@ pub async fn start_exec(
         attach_stdout: Some(true),
         attach_stderr: Some(true),
         tty: Some(true),
+        env: Some(vec!["TERM=xterm-256color".to_string()]),
         cmd: Some(vec!["/bin/sh".to_string()]),
         ..Default::default()
     };
@@ -55,7 +57,9 @@ pub async fn start_exec(
                         match chunk {
                             Ok(log_output) => {
                                 let bytes = log_output.into_bytes().to_vec();
-                                if !bytes.is_empty() && on_output.send(bytes).is_err() {
+                                if !bytes.is_empty()
+                                    && on_output.send(InvokeResponseBody::Raw(bytes)).is_err()
+                                {
                                     break;
                                 }
                             }
@@ -65,7 +69,7 @@ pub async fn start_exec(
                     // The shell exited or the stream broke: release the stdin
                     // handle and registry entry, and tell the frontend the
                     // session is over (empty payload is the EOF sentinel).
-                    let _ = on_output.send(Vec::new());
+                    let _ = on_output.send(InvokeResponseBody::Raw(Vec::new()));
                     app.state::<ExecRegistry>().remove(&eid);
                     app.state::<StreamRegistry>().remove(&task_key);
                 })

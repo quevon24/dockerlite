@@ -19,19 +19,22 @@ export function useSystemInfo(pollMs?: number): UseSystemInfoResult {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const genRef = useRef(0);
 
   const fetchInfo = useCallback(async (silent: boolean) => {
+    // Overlapping polls can resolve out of order; only the latest applies.
+    const gen = ++genRef.current;
     try {
       if (!silent) setLoading(true);
       const info = await getSystemInfo();
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || gen !== genRef.current) return;
       setData(info);
       setError(null);
     } catch (e) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || gen !== genRef.current) return;
       setError(String(e));
     } finally {
-      if (mountedRef.current && !silent) setLoading(false);
+      if (mountedRef.current && !silent && gen === genRef.current) setLoading(false);
     }
   }, []);
 

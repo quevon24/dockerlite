@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { Trash2, Check, RefreshCw } from "lucide-react";
 import {
@@ -78,23 +78,34 @@ export default function SystemPage() {
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const mountedRef = useRef(true);
+
   const fetchDiskUsage = (showToast = false) => {
     setLoading(true);
     getDiskUsage()
       .then((data) => {
+        if (!mountedRef.current) return;
         setDiskUsage(data);
         setError(null);
         if (showToast) toast("Disk usage refreshed", undefined, "info");
       })
       .catch((e) => {
+        if (!mountedRef.current) return;
         setError(String(e));
         if (showToast) toast("Failed to fetch disk usage", String(e), "error");
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (mountedRef.current) setLoading(false);
+      });
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchDiskUsage();
+    return () => {
+      mountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleOption = (id: string) => {

@@ -47,15 +47,18 @@ export default function ImageDetailPanel({ image, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const open = image !== null;
+  const imageId = image?.id ?? null;
+
   useEffect(() => {
-    if (!image) {
+    if (!imageId) {
       setLayers([]);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getImageLayers(image.id)
+    getImageLayers(imageId)
       .then((l) => {
         if (!cancelled) setLayers(l);
       })
@@ -68,17 +71,18 @@ export default function ImageDetailPanel({ image, onClose }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [image?.id]);
+  }, [imageId]);
 
+  // Only listen for Escape while the panel is open.
   useEffect(() => {
+    if (!open) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [open, onClose]);
 
-  const open = image !== null;
   const tags = image?.repoTags.filter((t) => t !== "<none>:<none>") ?? [];
 
   return (

@@ -24,20 +24,35 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   // Latest settings, updated synchronously so rapid update() calls don't
   // clobber each other before React re-renders.
   const settingsRef = useRef(settings);
+  // update() calls that land before the async load resolves are recorded
+  // here so the load can't clobber them (and they get re-persisted on top
+  // of the loaded values).
+  const loadedRef = useRef(false);
+  const pendingRef = useRef<Partial<AppSettings>>({});
 
   useEffect(() => {
     loadSettings().then((s) => {
-      settingsRef.current = s;
-      setSettings(s);
-      applyTheme(s.theme);
-      setMinimizeToTray(s.minimizeToTray).catch(() => {});
+      const next = { ...s, ...pendingRef.current };
+      const hadPending = Object.keys(pendingRef.current).length > 0;
+      loadedRef.current = true;
+      pendingRef.current = {};
+      settingsRef.current = next;
+      setSettings(next);
+      applyTheme(next.theme);
+      setMinimizeToTray(next.minimizeToTray).catch(() => {});
       setLoading(false);
+      // An early update() persisted defaults + partial; rewrite the merged
+      // result so disk matches memory.
+      if (hadPending) saveSettings(next).catch(() => {});
     });
   }, []);
 
   // Side effects run outside the state updater: updaters must be pure
   // (StrictMode double-invokes them, so saving inside would persist twice).
   const update = useCallback(async (partial: Partial<AppSettings>) => {
+    if (!loadedRef.current) {
+      pendingRef.current = { ...pendingRef.current, ...partial };
+    }
     const next = { ...settingsRef.current, ...partial };
     settingsRef.current = next;
     setSettings(next);

@@ -18,19 +18,22 @@ export function useContainer(containerId: string, intervalMs: number = 3000): Us
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const genRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    // Overlapping polls can resolve out of order; only the latest applies.
+    const gen = ++genRef.current;
     try {
       const all = await listContainers();
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || gen !== genRef.current) return;
       const found = all.find((c) => c.id === containerId) ?? null;
       setData(found);
       setError(null);
     } catch (e) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || gen !== genRef.current) return;
       setError(String(e));
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (mountedRef.current && gen === genRef.current) setLoading(false);
     }
   }, [containerId]);
 

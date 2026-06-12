@@ -6,39 +6,17 @@ import { useSettings } from "../../lib/SettingsContext";
 interface LogsTabProps {
   containerId: string;
   resetKey?: number;
+  active?: boolean;
 }
 
-/**
- * Strip ANSI/terminal control sequences from a log line for clean display:
- * CSI sequences, OSC sequences (BEL- or ST-terminated, or truncated at end
- * of line), charset selection, and remaining C0 control bytes except tab
- * and newline.
- */
-const ANSI_PATTERN =
-  // eslint-disable-next-line no-control-regex
-  /\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[()][0-9A-B]|[\x00-\x08\x0b-\x1f\x7f]/g;
-
-function stripAnsi(text: string): string {
-  return text.replace(ANSI_PATTERN, "");
-}
-
-function formatTimestamp(iso: string | null): string {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString();
-  } catch {
-    return iso;
-  }
-}
-
-export default function LogsTab({ containerId, resetKey = 0 }: LogsTabProps) {
+export default function LogsTab({ containerId, resetKey = 0, active = true }: LogsTabProps) {
   const { settings } = useSettings();
-  const { lines, error, clear } = useContainerLogs(
+  const { lines, error, ended, clear } = useContainerLogs(
     containerId,
     200,
     resetKey,
     settings.logBufferSize,
+    active,
   );
   const [autoScroll, setAutoScroll] = useState(true);
   const [showTimestamps, setShowTimestamps] = useState(true);
@@ -117,12 +95,15 @@ export default function LogsTab({ containerId, resetKey = 0 }: LogsTabProps) {
               line.stream === "stderr" ? "text-danger" : "text-text-primary"
             }`}
           >
-            {showTimestamps && line.timestamp && (
-              <span className="text-text-muted mr-2">{formatTimestamp(line.timestamp)}</span>
+            {showTimestamps && line.time && (
+              <span className="text-text-muted mr-2">{line.time}</span>
             )}
-            {stripAnsi(line.text)}
+            {line.text}
           </div>
         ))}
+        {ended && (
+          <div className="text-text-muted italic mt-2">Log stream ended (container removed).</div>
+        )}
       </div>
     </div>
   );

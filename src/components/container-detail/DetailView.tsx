@@ -45,7 +45,10 @@ export default function DetailView({ containerId }: DetailViewProps) {
     return <div className="text-text-secondary">Loading container...</div>;
   }
 
-  if (error || !data) {
+  // Only a missing container is fatal. A transient poll error (daemon
+  // restart, brief overload) must not unmount the tabs: that would kill the
+  // exec session and drop the log buffer and stats history.
+  if (!data) {
     return (
       <div className="bg-danger/10 border border-danger/30 rounded-lg p-6">
         <p className="text-danger font-medium">{error ?? "Container not found"}</p>
@@ -61,6 +64,11 @@ export default function DetailView({ containerId }: DetailViewProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {error && (
+        <div className="bg-danger/10 border border-danger/30 rounded px-3 py-2 mb-3 text-xs text-danger">
+          Container refresh failing: {error}
+        </div>
+      )}
       <div className="flex items-center gap-3 mb-4">
         <button
           onClick={() => navigate("/")}
@@ -108,7 +116,11 @@ export default function DetailView({ containerId }: DetailViewProps) {
           forceMount
           className="flex-1 min-h-0 outline-none data-[state=inactive]:hidden flex flex-col"
         >
-          <LogsTab containerId={containerId} resetKey={logsResetKey} />
+          <LogsTab
+            containerId={containerId}
+            resetKey={logsResetKey}
+            active={activeTab === "logs"}
+          />
         </Tabs.Content>
         <Tabs.Content
           value="terminal"
@@ -122,7 +134,9 @@ export default function DetailView({ containerId }: DetailViewProps) {
           forceMount
           className="flex-1 min-h-0 outline-none data-[state=inactive]:hidden overflow-auto"
         >
-          {visited.has("stats") && <StatsTab containerId={containerId} />}
+          {visited.has("stats") && (
+            <StatsTab containerId={containerId} active={activeTab === "stats"} />
+          )}
         </Tabs.Content>
         <Tabs.Content value="inspect" className="flex-1 min-h-0 outline-none overflow-auto">
           <InspectTab containerId={containerId} />

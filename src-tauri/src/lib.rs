@@ -52,6 +52,11 @@ pub fn run() {
     let docker_state = DockerState::new("/var/run/docker.sock");
 
     tauri::Builder::default()
+        // Must be the first plugin so a second launch exits before doing any
+        // other work; the running instance restores its window instead.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            restore_window(app);
+        }))
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(docker_state)
         .manage(StreamRegistry::new())

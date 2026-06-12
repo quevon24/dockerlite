@@ -148,10 +148,14 @@ pub struct LogLine {
 /// Format: "2024-01-15T14:32:01.123456789Z actual log text"
 fn parse_log_line(raw: &str) -> (Option<String>, String) {
     if let Some((maybe_ts, rest)) = raw.split_once(' ') {
-        if maybe_ts.len() >= 20
-            && maybe_ts.contains('T')
-            && (maybe_ts.ends_with('Z') || maybe_ts.contains('.'))
-        {
+        // Require the RFC3339 shape (digits then a dash) so ordinary tokens
+        // that merely contain 'T' and '.' aren't eaten as timestamps.
+        let bytes = maybe_ts.as_bytes();
+        let looks_like_ts = bytes.len() >= 20
+            && bytes[..4].iter().all(|b| b.is_ascii_digit())
+            && bytes[4] == b'-'
+            && maybe_ts.contains('T');
+        if looks_like_ts {
             return (Some(maybe_ts.to_string()), rest.to_string());
         }
     }
@@ -211,7 +215,10 @@ pub fn compute_stats(stats: &bollard::models::ContainerStatsResponse) -> Option<
         })
         .unwrap_or((0, 0));
 
-    let timestamp = chrono::Utc::now().timestamp();
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
 
     Some(StatsSnapshot {
         cpu_percent,
@@ -224,6 +231,72 @@ pub fn compute_stats(stats: &bollard::models::ContainerStatsResponse) -> Option<
     })
 }
 
+/// Cap for the partial-line carry buffer; a pathological line that never
+/// ends in a newline is flushed instead of growing without bound.
+const MAX_LINE_CARRY: usize = 64 * 1024;
+
+#[derive(Default)]
+struct LineCarry {
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+}
+
+/// Build a stream of follow-mode container logs with timestamps enabled.
+/// Chunks are split on newlines; bytes after the last newline are carried
+/// into the next chunk of the same stream, so lines (and multibyte UTF-8
+/// sequences) split across chunk boundaries parse correctly.
+pub fn logs_stream(
+    client: &Docker,
+    id: &str,
+    tail: u32,
+) -> impl Stream<Item = Result<Vec<LogLine>>> {
+    let options = LogsOptionsBuilder::new()
+        .follow(true)
+        .stdout(true)
+        .stderr(true)
+        .timestamps(true)
+        .tail(&tail.to_string())
+        .build();
+
+    let inner = client.logs(id, Some(options));
+    futures_util::StreamExt::scan(inner, LineCarry::default(), |carry, item| {
+        let mapped = item
+            .map(|out| {
+                let (stream_name, carried) = match &out {
+                    LogOutput::StdErr { .. } => ("stderr", &mut carry.stderr),
+                    _ => ("stdout", &mut carry.stdout),
+                };
+
+                let mut complete = std::mem::take(carried);
+                complete.extend_from_slice(out.as_ref());
+                let keep_from = complete
+                    .iter()
+                    .rposition(|&b| b == b'\n')
+                    .map(|i| i + 1)
+                    .unwrap_or(0);
+                if complete.len() - keep_from <= MAX_LINE_CARRY {
+                    *carried = complete.split_off(keep_from);
+                }
+
+                let text = String::from_utf8_lossy(&complete);
+                text.split_inclusive('\n')
+                    .map(|line| {
+                        let trimmed = line.trim_end_matches('\n').trim_end_matches('\r');
+                        let (ts, body) = parse_log_line(trimmed);
+                        LogLine {
+                            stream: stream_name.to_string(),
+                            timestamp: ts,
+                            text: body,
+                        }
+                    })
+                    .filter(|l| !l.text.is_empty() || l.timestamp.is_some())
+                    .collect()
+            })
+            .map_err(crate::error::DockerLiteError::from);
+        futures_util::future::ready(Some(mapped))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,6 +304,20 @@ mod tests {
 
     fn client() -> Docker {
         Docker::connect_with_unix_defaults().unwrap()
+    }
+
+    #[test]
+    fn parse_log_line_extracts_rfc3339_timestamps() {
+        let (ts, text) = parse_log_line("2024-01-15T14:32:01.123456789Z hello world");
+        assert_eq!(ts.as_deref(), Some("2024-01-15T14:32:01.123456789Z"));
+        assert_eq!(text, "hello world");
+    }
+
+    #[test]
+    fn parse_log_line_ignores_timestamp_lookalikes() {
+        let (ts, text) = parse_log_line("TRANSACTION.TIMEOUT.ERR something failed");
+        assert_eq!(ts, None);
+        assert_eq!(text, "TRANSACTION.TIMEOUT.ERR something failed");
     }
 
     #[tokio::test]
@@ -286,44 +373,4 @@ mod tests {
         let list = list_all(&client).await.unwrap();
         assert!(!list.iter().any(|c| c.id == id));
     }
-}
-
-/// Build a stream of follow-mode container logs with timestamps enabled.
-/// Each chunk is split on newlines and emitted as a LogLine.
-pub fn logs_stream(
-    client: &Docker,
-    id: &str,
-    tail: u32,
-) -> impl Stream<Item = Result<Vec<LogLine>>> {
-    let options = LogsOptionsBuilder::new()
-        .follow(true)
-        .stdout(true)
-        .stderr(true)
-        .timestamps(true)
-        .tail(&tail.to_string())
-        .build();
-
-    let inner = client.logs(id, Some(options));
-    futures_util::StreamExt::map(inner, |item| {
-        item.map(|out| {
-            let stream_name = match &out {
-                LogOutput::StdErr { .. } => "stderr",
-                _ => "stdout",
-            };
-            let text = String::from_utf8_lossy(out.as_ref()).to_string();
-            text.split_inclusive('\n')
-                .map(|line| {
-                    let trimmed = line.trim_end_matches('\n').trim_end_matches('\r');
-                    let (ts, body) = parse_log_line(trimmed);
-                    LogLine {
-                        stream: stream_name.to_string(),
-                        timestamp: ts,
-                        text: body,
-                    }
-                })
-                .filter(|l| !l.text.is_empty() || l.timestamp.is_some())
-                .collect()
-        })
-        .map_err(crate::error::DockerLiteError::from)
-    })
 }

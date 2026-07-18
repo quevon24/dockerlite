@@ -6,7 +6,7 @@ export interface AppSettings {
   refreshIntervalImages: number;
   refreshIntervalVolumes: number;
   refreshIntervalNetworks: number;
-  theme: "dark" | "light";
+  theme: "dark" | "light" | "system";
   logBufferSize: number;
   minimizeToTray: boolean;
 }
@@ -63,7 +63,7 @@ function sanitizeSettings(saved: Partial<AppSettings>): AppSettings {
       merged[key] = DEFAULT_SETTINGS[key];
     }
   }
-  if (merged.theme !== "dark" && merged.theme !== "light") {
+  if (merged.theme !== "dark" && merged.theme !== "light" && merged.theme !== "system") {
     merged.theme = DEFAULT_SETTINGS.theme;
   }
   if (typeof merged.minimizeToTray !== "boolean") {

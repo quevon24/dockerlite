@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
-import { RotateCw, CheckCircle2 } from "lucide-react";
+import { RotateCw, CheckCircle2, Moon, Sun, Monitor } from "lucide-react";
+import type { AppSettings } from "../lib/store";
 import { useSettings } from "../lib/SettingsContext";
 import { reconnectDocker } from "../lib/tauri";
 import { useToast } from "../components/ui/Toast";
@@ -36,6 +37,22 @@ export default function SettingsPage() {
     { label: "5s", value: 5000 },
     { label: "10s", value: 10000 },
     { label: "30s", value: 30000 },
+  ];
+
+  const themeOptions: {
+    value: AppSettings["theme"];
+    label: string;
+    hint: string;
+    icon: typeof Moon;
+  }[] = [
+    { value: "dark", label: "Dark", hint: "Always use the dark theme", icon: Moon },
+    { value: "light", label: "Light", hint: "Always use the light theme", icon: Sun },
+    {
+      value: "system",
+      label: "System",
+      hint: "Follow your OS / desktop appearance setting",
+      icon: Monitor,
+    },
   ];
 
   return (
@@ -102,19 +119,32 @@ export default function SettingsPage() {
 
         <section className="bg-surface-raised border border-border rounded-lg p-5">
           <h2 className="text-base font-medium mb-4">Appearance</h2>
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm text-text-primary">Dark mode</span>
-              <p className="text-xs text-text-muted mt-0.5">Toggle between dark and light themes</p>
+          <fieldset>
+            <legend className="sr-only">Theme</legend>
+            <div className="space-y-1">
+              {themeOptions.map(({ value, label, hint, icon: Icon }) => (
+                <label
+                  key={value}
+                  className="flex items-center gap-3 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-surface-overlay transition-colors"
+                >
+                  <input
+                    type="radio"
+                    name="theme"
+                    value={value}
+                    checked={settings.theme === value}
+                    onChange={() => update({ theme: value })}
+                    className="peer sr-only"
+                  />
+                  <span className="relative w-4 h-4 shrink-0 rounded-full border-2 border-text-muted transition-colors peer-checked:border-docker-blue after:absolute after:inset-0 after:m-auto after:h-2 after:w-2 after:scale-0 after:rounded-full after:bg-docker-blue after:transition-transform peer-checked:after:scale-100" />
+                  <Icon className="w-4 h-4 shrink-0 text-text-secondary" />
+                  <div>
+                    <span className="text-sm text-text-primary">{label}</span>
+                    <p className="text-xs text-text-muted mt-0.5">{hint}</p>
+                  </div>
+                </label>
+              ))}
             </div>
-            <Switch.Root
-              checked={settings.theme === "dark"}
-              onCheckedChange={(checked) => update({ theme: checked ? "dark" : "light" })}
-              className="w-10 h-5 rounded-full bg-surface-overlay data-[state=checked]:bg-docker-blue transition-colors"
-            >
-              <Switch.Thumb className="block w-4 h-4 rounded-full bg-text-primary translate-x-0.5 transition-transform data-[state=checked]:translate-x-[22px]" />
-            </Switch.Root>
-          </div>
+          </fieldset>
         </section>
 
         <section className="bg-surface-raised border border-border rounded-lg p-5">

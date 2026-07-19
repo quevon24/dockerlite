@@ -47,6 +47,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // When following the OS theme, re-apply whenever the desktop switches
+  // between light and dark (GNOME/KDE expose this via prefers-color-scheme).
+  useEffect(() => {
+    if (settings.theme !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => applyTheme("system");
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [settings.theme]);
+
   // Side effects run outside the state updater: updaters must be pure
   // (StrictMode double-invokes them, so saving inside would persist twice).
   const update = useCallback(async (partial: Partial<AppSettings>) => {
@@ -70,6 +80,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-function applyTheme(theme: "dark" | "light") {
-  document.documentElement.classList.toggle("light", theme === "light");
+function resolveTheme(theme: AppSettings["theme"]): "dark" | "light" {
+  if (theme === "system") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return theme;
+}
+
+function applyTheme(theme: AppSettings["theme"]) {
+  document.documentElement.classList.toggle("light", resolveTheme(theme) === "light");
 }

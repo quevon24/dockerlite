@@ -11,6 +11,47 @@ use tauri::{
     Manager,
 };
 
+const DEFAULT_SOCKET_PATH: &str = "/var/run/docker.sock";
+
+/// Extract a usable socket path from the persisted `settings` value, if it
+/// differs from the default the state already starts with. Mirrors the
+/// frontend's sanitizeSettings: settings.json can be hand-edited, so a
+/// missing, non-string, or empty value is ignored.
+fn saved_socket_path(settings: Option<&serde_json::Value>) -> Option<String> {
+    let path = settings?.get("socketPath")?.as_str()?;
+    if path.is_empty() || path == DEFAULT_SOCKET_PATH {
+        return None;
+    }
+    Some(path.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::saved_socket_path;
+    use serde_json::json;
+
+    #[test]
+    fn saved_socket_path_returns_custom_path() {
+        let settings = json!({ "socketPath": "/run/user/1000/docker.sock" });
+        assert_eq!(
+            saved_socket_path(Some(&settings)).as_deref(),
+            Some("/run/user/1000/docker.sock")
+        );
+    }
+
+    #[test]
+    fn saved_socket_path_ignores_default_missing_and_invalid_values() {
+        assert_eq!(saved_socket_path(None), None);
+        assert_eq!(saved_socket_path(Some(&json!({}))), None);
+        assert_eq!(saved_socket_path(Some(&json!({ "socketPath": "" }))), None);
+        assert_eq!(saved_socket_path(Some(&json!({ "socketPath": 42 }))), None);
+        assert_eq!(
+            saved_socket_path(Some(&json!({ "socketPath": "/var/run/docker.sock" }))),
+            None
+        );
+    }
+}
+
 // Default window geometry. Keep in sync with the main window entry in
 // tauri.conf.json, which controls the size at first launch.
 const WINDOW_SIZE: (f64, f64) = (1280.0, 800.0);
@@ -49,7 +90,7 @@ fn restore_window(handle: &tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let docker_state = DockerState::new("/var/run/docker.sock");
+    let docker_state = DockerState::new(DEFAULT_SOCKET_PATH);
 
     tauri::Builder::default()
         // Must be the first plugin so a second launch exits before doing any
@@ -66,9 +107,17 @@ pub fn run() {
             // Create the settings store Rust-side. The webview is only
             // granted store:allow-get-store (a handle to an existing store),
             // not allow-load, so it cannot create stores at arbitrary paths.
+            //
+            // Apply the persisted socket path here rather than from the
+            // frontend: the webview only reconnects when the user presses
+            // Test in Settings, so without this the backend always started
+            // on the default socket regardless of the saved setting.
             {
                 use tauri_plugin_store::StoreExt;
-                app.store("settings.json")?;
+                let store = app.store("settings.json")?;
+                if let Some(path) = saved_socket_path(store.get("settings").as_ref()) {
+                    app.state::<DockerState>().set_socket_path(&path);
+                }
             }
 
             // Build tray menu

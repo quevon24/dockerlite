@@ -82,6 +82,16 @@ impl DockerState {
         Ok(client)
     }
 
+    /// Point the state at a different socket without pinging the daemon.
+    /// Used at startup to apply the persisted setting: Docker may not be
+    /// running yet, and `client()` retries against the stored path on every
+    /// command, so the path must be recorded even when connecting fails now.
+    pub fn set_socket_path(&self, new_path: &str) {
+        let mut conn = self.conn.write().unwrap_or_else(PoisonError::into_inner);
+        conn.client = Self::try_connect(new_path);
+        conn.socket_path = new_path.to_string();
+    }
+
     /// Get the current socket path.
     pub fn socket_path(&self) -> String {
         self.conn

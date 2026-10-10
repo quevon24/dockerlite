@@ -50,7 +50,23 @@ jobs:
       # The repack also embeds AppImage update information so updaters such
       # as Gear Lever and AppImageUpdate can find new releases; appimagetool
       # writes the matching .zsync file next to the AppImage.
+      #
+      # appimagetool is pinned to a tagged release and checksum-verified
+      # before it runs: it rewrites the binary we ship, so a mutable
+      # "continuous" download would let a replaced asset inject code into
+      # every release. To bump it, change both the URL and the SHA-256
+      # (the digest is shown on the GitHub release asset).
+      #
+      # When the APPIMAGE_SIGNING_KEY secret (an ASCII-armored GPG private
+      # key without passphrase) is set, the AppImage is signed and the public
+      # key is embedded, so AppImageUpdate and users can verify authenticity
+      # rather than trusting GitHub alone. Without the secret the AppImage is
+      # built unsigned.
       - name: Repack AppImage without bundled libwayland
+        env:
+          APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+          APPIMAGE_SIGNING_KEY: ${{ secrets.APPIMAGE_SIGNING_KEY }}
         run: |
           set -euo pipefail
           appimage=$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -print -quit)
@@ -60,10 +76,24 @@ jobs:
           chmod +x "$name"
           ./"$name" --appimage-extract > /dev/null
           find squashfs-root -name 'libwayland-*.so*' -delete
-          curl -fsSL -o appimagetool \
-            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+
+          curl -fsSL -o appimagetool "$APPIMAGETOOL_URL"
+          echo "$APPIMAGETOOL_SHA256  appimagetool" | sha256sum -c -
           chmod +x appimagetool
-          ARCH=x86_64 ./appimagetool --appimage-extract-and-run --no-appstream \
+
+          sign_args=()
+          if [ -n "$APPIMAGE_SIGNING_KEY" ]; then
+            # appimagetool shells out to gpg2; Ubuntu ships it as gpg.
+            command -v gpg2 > /dev/null || sudo ln -s "$(command -v gpg)" /usr/local/bin/gpg2
+            printf '%s\n' "$APPIMAGE_SIGNING_KEY" | gpg --batch --quiet --import
+            fpr=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')
+            sign_args=(--sign --sign-key "$fpr")
+            echo "Signing AppImage with key $fpr"
+          else
+            echo "APPIMAGE_SIGNING_KEY not set; AppImage will be unsigned"
+          fi
+
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run --no-appstream "${sign_args[@]}" \
             -u "gh-releases-zsync|${GITHUB_REPOSITORY_OWNER}|${GITHUB_REPOSITORY#*/}|latest|DockerLite_*_amd64.AppImage.zsync" \
             squashfs-root "$name"
           test -f "$name.zsync"
@@ -80,4 +110,5 @@ jobs:
             src-tauri/target/release/bundle/appimage/*.AppImage \
             src-tauri/target/release/bundle/appimage/*.AppImage.zsync \
             src-tauri/target/release/bundle/deb/*.deb \
-            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/rpm/*.rpm \
+            dockerlite-release-signing.pub.asc

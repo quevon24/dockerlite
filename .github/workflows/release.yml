@@ -46,6 +46,10 @@ jobs:
       # (blank window, "EGL_BAD_PARAMETER"). Current linuxdeploy excludes
       # libwayland, but tauri pins an older build that doesn't, so strip it
       # and repack. See tauri-apps/tauri#11994.
+      #
+      # The repack also embeds AppImage update information so updaters such
+      # as Gear Lever and AppImageUpdate can find new releases; appimagetool
+      # writes the matching .zsync file next to the AppImage.
       - name: Repack AppImage without bundled libwayland
         run: |
           set -euo pipefail
@@ -59,7 +63,10 @@ jobs:
           curl -fsSL -o appimagetool \
             https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool
-          ARCH=x86_64 ./appimagetool --appimage-extract-and-run --no-appstream squashfs-root "$name"
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run --no-appstream \
+            -u "gh-releases-zsync|${GITHUB_REPOSITORY_OWNER}|${GITHUB_REPOSITORY#*/}|latest|DockerLite_*_amd64.AppImage.zsync" \
+            squashfs-root "$name"
+          test -f "$name.zsync"
           rm -rf squashfs-root appimagetool
 
       - name: Create draft release
@@ -71,5 +78,6 @@ jobs:
             --title "DockerLite $GITHUB_REF_NAME" \
             --verify-tag \
             src-tauri/target/release/bundle/appimage/*.AppImage \
+            src-tauri/target/release/bundle/appimage/*.AppImage.zsync \
             src-tauri/target/release/bundle/deb/*.deb \
             src-tauri/target/release/bundle/rpm/*.rpm

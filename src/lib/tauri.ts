@@ -153,9 +153,7 @@ export async function resizeExecTerminal(
 
 /** Tagged events emitted by the backend log stream. */
 export type LogStreamEvent =
-  | { type: "lines"; lines: LogLine[] }
-  | { type: "error"; message: string }
-  | { type: "ended" };
+  { type: "lines"; lines: LogLine[] } | { type: "error"; message: string } | { type: "ended" };
 
 /** Tagged events emitted by the backend stats stream. */
 export type StatsStreamEvent =

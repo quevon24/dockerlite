@@ -31,14 +31,7 @@ export interface PortMapping {
 }
 
 export type ContainerState =
-  | "running"
-  | "paused"
-  | "restarting"
-  | "exited"
-  | "created"
-  | "removing"
-  | "dead"
-  | "";
+  "running" | "paused" | "restarting" | "exited" | "created" | "removing" | "dead" | "";
 
 export interface ContainerInfo {
   id: string;

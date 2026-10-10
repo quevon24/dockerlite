@@ -24,10 +24,18 @@ its own copy of WebKitGTK frozen at build time, so it only picks up browser-engi
 new DockerLite release is published. DockerLite renders data produced by your containers (log
 output, environment variables, labels), so an up-to-date engine matters.
 
-If the AppImage was signed at release time, you can check its signature before running it:
+Releases published after October 2026 sign the AppImage with the project's release key. The public key is
+committed at [`dockerlite-release-signing.pub.asc`](dockerlite-release-signing.pub.asc) and attached
+to every release. Its fingerprint is:
+
+```
+5396 D542 D9A6 08DD 5D27  4BE2 0D85 CE52 C3B5 9577
+```
+
+Tools such as AppImageUpdate check the signature automatically. To look at it yourself:
 
 ```bash
-./DockerLite_*.AppImage --appimage-signature   # prints the embedded PGP signature, if any
+./DockerLite_*.AppImage --appimage-signature   # prints the embedded PGP signature
 ```
 
 ## Features
@@ -266,8 +274,10 @@ gpg --armor --export-secret-keys 'DockerLite Release Signing' | gh secret set AP
 gpg --armor --export 'DockerLite Release Signing' > dockerlite-release-signing.pub.asc
 ```
 
-Publish the exported public key somewhere users can find it (for example in the release notes)
-so they can compare it against the key embedded in the AppImage.
+The exported public key is committed as `dockerlite-release-signing.pub.asc` and the workflow
+attaches it to every release, so users can compare it against the key embedded in the AppImage.
+If you ever rotate the key, replace that file and the fingerprint in the Download section in the
+same change as the secret.
 
 ### Updating the pinned appimagetool
 

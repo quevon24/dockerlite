@@ -18,6 +18,18 @@ Prebuilt packages are available on the [Releases page](https://github.com/quevon
 
 Requires a running Docker Engine and your user in the `docker` group (see [Prerequisites](#prerequisites)).
 
+**Prefer the .deb or .rpm when your distro offers one.** Those packages use your system's
+WebKitGTK, which receives security updates through your package manager. The AppImage bundles
+its own copy of WebKitGTK frozen at build time, so it only picks up browser-engine fixes when a
+new DockerLite release is published. DockerLite renders data produced by your containers (log
+output, environment variables, labels), so an up-to-date engine matters.
+
+If the AppImage was signed at release time, you can check its signature before running it:
+
+```bash
+./DockerLite_*.AppImage --appimage-signature   # prints the embedded PGP signature, if any
+```
+
 ## Features
 
 - **Container Dashboard** with compose project grouping, bulk actions, and real-time status
@@ -238,6 +250,32 @@ produces AppImage, .deb, and .rpm artifacts and creates a draft GitHub Release f
    publish when ready.
 
 No tokens or secrets need to be configured — `GITHUB_TOKEN` is provided automatically.
+
+### Signing the AppImage (optional)
+
+If the repository has an `APPIMAGE_SIGNING_KEY` secret, the release workflow signs the AppImage
+and embeds the public key in it, so AppImageUpdate and users can verify that a download really
+came from this project. Without the secret the AppImage is published unsigned.
+
+To set it up once, generate a dedicated signing key without a passphrase (CI cannot answer a
+passphrase prompt) and store the ASCII-armored private key as the secret:
+
+```bash
+gpg --batch --passphrase '' --quick-generate-key 'DockerLite Release Signing' ed25519 sign never
+gpg --armor --export-secret-keys 'DockerLite Release Signing' | gh secret set APPIMAGE_SIGNING_KEY
+gpg --armor --export 'DockerLite Release Signing' > dockerlite-release-signing.pub.asc
+```
+
+Publish the exported public key somewhere users can find it (for example in the release notes)
+so they can compare it against the key embedded in the AppImage.
+
+### Updating the pinned appimagetool
+
+The workflow downloads a specific tagged release of
+[appimagetool](https://github.com/AppImage/appimagetool/releases) and refuses to run it unless
+its SHA-256 matches the value in `release.yml`. The tool rewrites the AppImage we ship, so it must
+never be fetched from a mutable URL. To upgrade it, update both the URL and the `sha256:` digest
+shown on the GitHub release asset.
 
 ## Architecture
 

@@ -6,6 +6,8 @@
 
 A lightweight, native Docker Desktop replacement for Linux built with [Tauri](https://tauri.app). Connects directly to the local Docker Engine via the Unix socket for high-performance container management.
 
+![Container dashboard with compose project grouping](docs/screenshots/containers.png)
+
 ## Download
 
 Prebuilt packages are available on the [Releases page](https://github.com/quevon24/dockerlite/releases/latest):
@@ -51,6 +53,32 @@ Tools such as AppImageUpdate check the signature automatically. To look at it yo
 - **System Cleanup** with granular prune (containers, images, volumes, networks, build cache) and disk usage breakdown
 - **Settings** for socket path, refresh intervals, dark/light theme, and log buffer size
 - **Dark Mode** by default with a light theme toggle
+
+## Screenshots
+
+### Container detail
+
+| Logs | Terminal |
+|---|---|
+| ![Live log stream with timestamps and search](docs/screenshots/container-logs.png) | ![Interactive shell inside the container](docs/screenshots/container-terminal.png) |
+
+| Stats | Inspect | Environment |
+|---|---|---|
+| ![CPU, memory and network charts](docs/screenshots/container-stats.png) | ![Collapsible inspect JSON tree](docs/screenshots/container-inspect.png) | ![Environment variables table](docs/screenshots/container-env.png) |
+
+### Resources
+
+| Images | Volumes |
+|---|---|
+| ![Image list with dangling filter and bulk delete](docs/screenshots/images.png) | ![Volume list with orphan detection](docs/screenshots/volumes.png) |
+
+| Networks | Cleanup |
+|---|---|
+| ![Networks with connected containers and IPs](docs/screenshots/networks.png) | ![System cleanup with disk usage breakdown](docs/screenshots/cleanup.png) |
+
+### Settings
+
+![Settings for socket path, refresh intervals and theme](docs/screenshots/settings.png)
 
 ## Tech Stack
 
